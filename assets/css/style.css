@@ -80,7 +80,7 @@ a:hover {
 }
 
 .brand-logo {
-  width: 72px;
+  /* width: 72px; */
   height: 72px;
 }
 
@@ -107,7 +107,9 @@ a:hover {
 }
 
 .nav-toggle {
-  display: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   background: var(--color-primary);
   color: white;
   border: none;
@@ -118,16 +120,35 @@ a:hover {
 }
 
 .nav-links {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.35rem;
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  min-width: min(320px, 90vw);
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  z-index: 10;
+}
+
+.nav-links.open {
+  max-height: 80vh;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .nav-links a {
-  display: inline-block;
+  display: block;
   padding: 0.5rem 0.9rem;
   border-radius: 999px;
   font-weight: 600;
@@ -542,34 +563,11 @@ textarea {
   padding-top: 2rem;
 }
 
-@media (max-width: 1024px) {
-  .nav-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
+@media (max-width: 720px) {
   .nav-links {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 0.5rem);
-    flex-direction: column;
-    background: var(--color-surface);
-    padding: 1rem;
-    border-radius: 1rem;
-    box-shadow: var(--shadow);
-    min-width: 240px;
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-    transition: max-height 0.3s ease, opacity 0.3s ease;
-  }
-
-  .nav-links.open {
-    max-height: 80vh;
-    opacity: 1;
-    pointer-events: auto;
+    left: 0;
+    right: auto;
+    width: min(100%, 360px);
   }
 }
 

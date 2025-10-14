@@ -102,7 +102,10 @@ function setupForm() {
       refreshPosts();
     } catch (error) {
       console.error(error);
-      showFeedback("Une erreur est survenue lors de l'enregistrement. Vérifiez votre connexion et réessayez.", 'error');
+      const userMessage = error instanceof Error && error.message
+        ? error.message
+        : "Une erreur est survenue lors de l'enregistrement. Vérifiez votre connexion et réessayez.";
+      showFeedback(userMessage, 'error');
     } finally {
       setFormDisabled(false);
     }
@@ -137,7 +140,7 @@ function addProofSlot() {
 async function collectFormData() {
   const proofFieldsets = Array.from(proofsWrapper.querySelectorAll('.proof-item'));
   if (!proofFieldsets.length) {
-    throw new Error('Aucune preuve fournie');
+    throw new Error('Ajoutez au moins une preuve avec image et distance.');
   }
 
   const proofs = [];
@@ -148,7 +151,7 @@ async function collectFormData() {
     const distanceInput = fieldset.querySelector('input[type="number"]');
 
     if (!fileInput?.files?.length) {
-      throw new Error('Sélectionnez une image pour chaque preuve');
+      throw new Error("Vous avez oublié d'insérer une image.");
     }
 
     const file = fileInput.files[0];

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Polytech Roule pour le Caritatif</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-content">
+        <div class="brand">
+          <img src="assets/images/prc-logo.svg" alt="Logo Polytech Roule pour le Caritatif" class="brand-logo" />
+          <div>
+            <h1>Polytech Roule pour le Caritatif</h1>
+            <p>16 écoles, un défi solidaire pour les Restos du Cœur</p>
+          </div>
+        </div>
+        <nav class="main-nav" aria-label="Navigation principale">
+          <button class="nav-toggle" aria-expanded="false" aria-controls="nav-links">Menu</button>
+          <ul id="nav-links" class="nav-links">
+            <li data-static="true"><a href="index.html" class="active">Accueil</a></li>
+            <li data-static="true"><a href="school.html?code=angers">Polytech Angers</a></li>
+            <li data-static="true"><a href="school.html?code=annecy">Polytech Annecy-Chambéry</a></li>
+            <li data-static="true"><a href="school.html?code=clermont">Polytech Clermont-Ferrand</a></li>
+            <li data-static="true"><a href="school.html?code=dijon">Polytech Dijon</a></li>
+            <li data-static="true"><a href="school.html?code=grenoble">Polytech Grenoble</a></li>
+            <li data-static="true"><a href="school.html?code=lille">Polytech Lille</a></li>
+            <li data-static="true"><a href="school.html?code=lyon">Polytech Lyon</a></li>
+            <li data-static="true"><a href="school.html?code=marseille">Polytech Marseille</a></li>
+            <li data-static="true"><a href="school.html?code=montpellier">Polytech Montpellier</a></li>
+            <li data-static="true"><a href="school.html?code=nancy">Polytech Nancy</a></li>
+            <li data-static="true"><a href="school.html?code=nantes">Polytech Nantes</a></li>
+            <li data-static="true"><a href="school.html?code=nice">Polytech Nice Sophia</a></li>
+            <li data-static="true"><a href="school.html?code=orleans">Polytech Orléans</a></li>
+            <li data-static="true"><a href="school.html?code=paris">Polytech Paris-Saclay</a></li>
+            <li data-static="true"><a href="school.html?code=sorbonne">Polytech Sorbonne</a></li>
+            <li data-static="true"><a href="school.html?code=tours">Polytech Tours</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <noscript>
+      <div class="noscript-warning">
+        Pour profiter du classement en direct, activez JavaScript dans votre navigateur.
+      </div>
+    </noscript>
+
+    <main class="container">
+      <section class="hero">
+        <h2>Classement général</h2>
+        <p>Suivez en direct le classement des écoles Polytech selon les kilomètres parcourus.</p>
+        <div class="stats-cards">
+          <article class="card highlight">
+            <h3>Total global</h3>
+            <p class="stat-value" id="global-total">0 km</p>
+            <p class="stat-subtitle">Kilomètres cumulés pour les Restos du Cœur</p>
+          </article>
+          <article class="card">
+            <h3>Écoles participantes</h3>
+            <p class="stat-value" id="schools-count">0</p>
+            <p class="stat-subtitle">16 écoles mobilisées</p>
+          </article>
+          <article class="card">
+            <h3>Trajets enregistrés</h3>
+            <p class="stat-value" id="rides-count">0</p>
+            <p class="stat-subtitle">Déclarations solidaires</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="leaderboard" aria-live="polite">
+        <div class="section-header">
+          <h2>Classement des écoles</h2>
+          <span class="last-updated" id="leaderboard-updated">Mise à jour en attente…</span>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">École</th>
+                <th scope="col">Kilomètres</th>
+                <th scope="col">Objectif</th>
+                <th scope="col">Progression</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+              <tr>
+                <td colspan="5">Chargement du classement…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="top-rides" aria-live="polite">
+        <div class="top-rides-column">
+          <h2>Top 3 trajets du jour</h2>
+          <ol id="daily-top-rides" class="ride-list">
+            <li>En attente de données…</li>
+          </ol>
+        </div>
+        <div class="top-rides-column">
+          <h2>Top 3 trajets de la semaine</h2>
+          <ol id="weekly-top-rides" class="ride-list">
+            <li>En attente de données…</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="call-to-action">
+        <div class="cta-content">
+          <h2>Participez au défi</h2>
+          <p>Rejoignez votre école, enregistrez vos trajets, et contribuez à un marathon solidaire au profit des Restos du Cœur.</p>
+          <a class="cta-button" href="school.html?code=sorbonne">Je déclare mon trajet</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>&copy; <span id="current-year"></span> Polytech Roule pour le Caritatif. Projet étudiant au profit des Restos du Cœur.</p>
+      </div>
+    </footer>
+
+    <script type="module" src="assets/js/app.js"></script>
+  </body>
+</html>

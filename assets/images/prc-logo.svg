@@ -1,0 +1,9 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="80" cy="80" r="76" fill="#1D7ED2" opacity="0.12" stroke="#1D7ED2" stroke-width="8" />
+  <path d="M45 90C45 66.909 63.909 48 87 48C110.091 48 129 66.909 129 90" stroke="#1D7ED2" stroke-width="10" stroke-linecap="round" />
+  <path d="M31 90C31 59.281 56.281 34 87 34" stroke="#00BCD4" stroke-width="10" stroke-linecap="round" />
+  <path d="M42 112C53.941 124.324 70.71 132 90 132C116.062 132 138.232 117.077 149.74 94.999" stroke="#F4A261" stroke-width="10" stroke-linecap="round" />
+  <circle cx="87" cy="90" r="20" fill="#1D7ED2" opacity="0.9" />
+  <path d="M99 88L84 99L78 93" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="80" y="35" text-anchor="middle" font-family="'Poppins', sans-serif" font-size="20" fill="#1D7ED2" font-weight="700">PRC</text>
+</svg>

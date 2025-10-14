@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="page-title">Polytech PRC – École</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body class="school-page">
+    <header class="site-header">
+      <div class="container header-content">
+        <div class="brand">
+          <img src="assets/images/prc-logo.svg" alt="Logo Polytech Roule pour le Caritatif" class="brand-logo" />
+          <div>
+            <a class="back-home" href="index.html">← Retour à l'accueil</a>
+            <h1 id="school-title">Polytech</h1>
+            <p>Déclarez vos trajets et aidez-nous à soutenir les Restos du Cœur.</p>
+          </div>
+        </div>
+        <nav class="main-nav" aria-label="Navigation principale">
+          <button class="nav-toggle" aria-expanded="false" aria-controls="nav-links">Menu</button>
+          <ul id="nav-links" class="nav-links">
+            <li data-static="true"><a href="index.html">Accueil</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <noscript>
+      <div class="noscript-warning">
+        Activez JavaScript pour déclarer vos trajets et voir les publications.
+      </div>
+    </noscript>
+
+    <main class="container">
+      <section class="school-summary">
+        <article class="card">
+          <h2>Statistiques</h2>
+          <div class="stat-grid">
+            <div>
+              <span class="stat-label">Total de kilomètres</span>
+              <span class="stat-value" id="school-total">0 km</span>
+            </div>
+            <div>
+              <span class="stat-label">Nombre de trajets</span>
+              <span class="stat-value" id="school-ride-count">0</span>
+            </div>
+            <div>
+              <span class="stat-label">Objectif</span>
+              <span class="stat-value" id="school-goal">0 km</span>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="ride-form card">
+        <div class="section-header">
+          <div>
+            <h2>Déclarer un trajet</h2>
+            <p>Ajoutez vos preuves (captures Strava, Vélib, photos) et indiquez la distance correspondante.</p>
+          </div>
+          <button id="add-proof" type="button" class="secondary-button">Ajouter une image</button>
+        </div>
+        <form id="ride-form" novalidate>
+          <div id="proofs-wrapper" class="proofs-wrapper"></div>
+          <div class="form-group">
+            <label for="ride-notes">Commentaire (optionnel)</label>
+            <textarea id="ride-notes" name="notes" rows="3" placeholder="Détails du trajet, participants, météo..."></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="primary-button">Soumettre le trajet</button>
+            <p class="form-hint">Les fichiers sont envoyés sur Appwrite Storage. Assurez-vous d'avoir les droits de partage.</p>
+          </div>
+          <p class="form-feedback" id="form-feedback" role="alert" hidden></p>
+        </form>
+      </section>
+
+      <section class="recent-posts">
+        <div class="section-header">
+          <h2>Publications récentes</h2>
+          <button id="refresh-posts" class="secondary-button" type="button">Actualiser</button>
+        </div>
+        <div id="posts-grid" class="posts-grid" aria-live="polite">
+          <p class="empty-state">Soyez le premier à déclarer un trajet !</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>&copy; <span id="current-year"></span> Polytech Roule pour le Caritatif.</p>
+      </div>
+    </footer>
+
+    <script type="module" src="assets/js/school.js"></script>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "polytech-prc",
+  "version": "1.0.0",
+  "description": "Site web Polytech Roule pour le Caritatif",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "polytech",
+    "appwrite",
+    "sport",
+    "solidarite",
+    "event"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^5.3.4"
+  },
+  "dependencies": {
+    "appwrite": "^21.2.1"
+  }
+}

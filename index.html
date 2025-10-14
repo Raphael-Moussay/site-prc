@@ -118,7 +118,19 @@
         <div class="cta-content">
           <h2>Participez au défi</h2>
           <p>Rejoignez votre école, enregistrez vos trajets, et contribuez à un marathon solidaire au profit des Restos du Cœur.</p>
-          <a class="cta-button" href="school.html?code=sorbonne">Je déclare mon trajet</a>
+          <div class="cta-actions">
+            <label class="visually-hidden" for="cta-school-select">Choisissez votre école</label>
+            <select id="cta-school-select" class="cta-select" aria-label="Choisissez votre école">
+              <option value="" selected disabled>Choisissez votre école…</option>
+            </select>
+            <button type="button" id="cta-school-submit" class="cta-button">Je déclare mon trajet</button>
+          </div>
+          <noscript>
+            <p>
+              <strong>Sans JavaScript ?</strong>
+              Consultez la <a href="#nav-links">liste des écoles</a> un peu plus haut pour rejoindre la vôtre.
+            </p>
+          </noscript>
         </div>
       </section>
     </main>

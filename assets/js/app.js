@@ -1,4 +1,12 @@
-import { initializeAppwrite, getSchools, formatDistance, formatDateTime, subscribeToLeaderboard } from './core.js';
+import {
+  initializeAppwrite,
+  getSchools,
+  formatDistance,
+  formatDateTime,
+  subscribeToLeaderboard,
+  setupHeaderAutoHide,
+  setupScrollToTopButton,
+} from './core.js';
 
 initializeAppwrite();
 
@@ -6,6 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
   populateNavigation();
   hydrateFooter();
   setupNavigationToggle();
+  setupHeaderAutoHide();
+  setupScrollToTopButton();
+  setupCtaSchoolSelector();
   subscribeToLeaderboard({
     onTotalsUpdate: updateTotals,
     onLeaderboardUpdate: renderLeaderboard,
@@ -129,4 +140,47 @@ function renderTopList(selector, rides) {
       `
     )
     .join('');
+}
+
+function setupCtaSchoolSelector() {
+  const select = document.querySelector('#cta-school-select');
+  const submitButton = document.querySelector('#cta-school-submit');
+  if (!select || !submitButton) return;
+
+  const schools = getSchools();
+  const fragment = document.createDocumentFragment();
+
+  schools.forEach((school) => {
+    const option = document.createElement('option');
+    option.value = school.code;
+    option.textContent = school.displayName;
+    fragment.appendChild(option);
+  });
+
+  select.appendChild(fragment);
+
+  const navigateToSchool = () => {
+    const selectedCode = select.value;
+    if (!selectedCode) {
+      select.setCustomValidity('Choisissez votre école pour continuer.');
+      select.reportValidity();
+      window.setTimeout(() => select.setCustomValidity(''), 2000);
+      return;
+    }
+
+    window.location.href = `school.html?code=${selectedCode}`;
+  };
+
+  submitButton.addEventListener('click', navigateToSchool);
+
+  select.addEventListener('change', () => {
+    select.setCustomValidity('');
+  });
+
+  select.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      navigateToSchool();
+    }
+  });
 }

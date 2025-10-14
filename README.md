@@ -9,6 +9,7 @@ Site web événementiel pour le défi solidaire « Polytech Roule pour le Carit
 - **Top 3 des trajets** de la journée et de la semaine.
 - **Page dédiée par école** avec formulaire de déclaration de trajets, upload d’images vers Appwrite Storage et fil des publications récentes.
 - **Design responsive** inspiré de la charte Polytech, header fixe, couleurs vives et typographie Poppins.
+- **Navigation mobile optimisée** avec bouton « Menu » centré, header qui se masque lors du défilement et bouton « retour en haut » accessible.
 
 ## 🗂️ Structure du projet
 

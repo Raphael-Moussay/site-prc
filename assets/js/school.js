@@ -8,6 +8,9 @@ import {
   listenToSchoolTotals,
   fetchRecentRides,
   uploadProof,
+  setupHeaderAutoHide,
+  setupScrollToTopButton,
+  getSchoolObjective,
 } from './core.js';
 
 const params = new URLSearchParams(window.location.search);
@@ -32,6 +35,8 @@ const pageTitle = document.querySelector('#page-title');
 populateNavigation();
 setupPageContent();
 setupNavigationToggle();
+setupHeaderAutoHide();
+setupScrollToTopButton();
 setupForm();
 setupRealtimeStats();
 refreshPosts();
@@ -216,7 +221,7 @@ function setupRealtimeStats() {
 
     if (totalEl) totalEl.textContent = formatDistance(totalDistance);
     if (countEl) countEl.textContent = ridesCount.toString();
-    if (goalEl) goalEl.textContent = formatDistance(objective);
+    if (goalEl) goalEl.textContent = formatDistance(objective ?? getSchoolObjective(school.code));
   });
 }
 

@@ -7,6 +7,28 @@ export const appwriteConfig = {
   proofsBucketId: '68ee56d3001a25fb2349',
   schoolSettingsCollectionId: 'school-settings',
   globalAdminTeamId: 'Proprietaire',
+  // Optionnel: liste d'emails considérés comme propriétaires (admin global) côté UI
+  // Utile si la récupération des memberships Appwrite est indisponible côté client.
+  ownerEmails: [
+    'raphael.moussay@gmail.com',
+  ],
+  // Optionnel: emails admin par école pour l'UI (si la détection des teams échoue)
+  schoolAdminEmails: {
+    sorbonne: ['bds.polytechsorbonne@gmail.com'],
+  },
+  devProxy: {
+    enabled: true,
+    path: '/v1',
+    // Add the dev hosts you actually use (Vite, Live Server, etc.)
+    allowedOrigins: [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5174',
+      'http://localhost:5500',
+      'http://127.0.0.1:5500',
+    ],
+  },
   schoolAdminTeams: {
     angers: '68eea3a20013ade40170',
     annecy: '68eea3f8001c4e2077b5',
@@ -29,5 +51,5 @@ export const appwriteConfig = {
 
 export const appwriteOptions = {
   enableRealtime: true,
-  allowAnonymousWrites: true,
+  allowAnonymousWrites: false,
 };

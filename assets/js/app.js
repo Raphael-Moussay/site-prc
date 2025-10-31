@@ -6,6 +6,12 @@ import {
   subscribeToLeaderboard,
   setupHeaderAutoHide,
   setupScrollToTopButton,
+  onAuthStateChange,
+  loadCurrentUser,
+  loginWithEmailPassword,
+  registerWithEmailPassword,
+  logout,
+  getUserDisplayName,
 } from './core.js';
 
 initializeAppwrite();
@@ -16,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNavigationToggle();
   setupHeaderAutoHide();
   setupScrollToTopButton();
+  setupAuthControls();
   setupCtaSchoolSelector();
   subscribeToLeaderboard({
     onTotalsUpdate: updateTotals,
@@ -68,6 +75,194 @@ function setupNavigationToggle() {
       navLinks.classList.remove('open');
     })
   );
+}
+
+function setupAuthControls() {
+  const authButton = document.querySelector('#auth-button');
+  const authUser = document.querySelector('#auth-user');
+  const modal = document.querySelector('#auth-modal');
+  const form = modal?.querySelector('#auth-form');
+  const emailInput = modal?.querySelector('#auth-email');
+  const passwordInput = modal?.querySelector('#auth-password');
+  const nameGroup = modal?.querySelector('#auth-name-group');
+  const nameInput = modal?.querySelector('#auth-name');
+  const toggleModeButton = modal?.querySelector('#auth-toggle-mode');
+  const feedbackEl = modal?.querySelector('#auth-feedback');
+  const titleEl = modal?.querySelector('#auth-modal-title');
+  const submitButton = modal?.querySelector('[data-auth-submit]');
+  const closeButtons = modal ? Array.from(modal.querySelectorAll('[data-auth-close]')) : [];
+
+  if (!authButton || !form || !modal || !emailInput || !passwordInput || !feedbackEl || !titleEl || !submitButton) {
+    return;
+  }
+
+  let mode = 'login';
+  let isSubmitting = false;
+
+  const clearFeedback = () => {
+    feedbackEl.textContent = '';
+    feedbackEl.hidden = true;
+    delete feedbackEl.dataset.type;
+  };
+
+  const showFeedback = (message, type = 'error') => {
+    feedbackEl.textContent = message;
+    feedbackEl.dataset.type = type;
+    feedbackEl.hidden = false;
+  };
+
+  const closeModal = () => {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('auth-modal-open');
+    setTimeout(() => {
+      modal.hidden = true;
+      form.reset();
+      clearFeedback();
+      mode = 'login';
+      nameGroup?.setAttribute('hidden', '');
+      titleEl.textContent = 'Connexion';
+      submitButton.textContent = 'Se connecter';
+      toggleModeButton?.setAttribute('data-mode', 'login');
+      toggleModeButton && (toggleModeButton.textContent = 'Créer un compte');
+      passwordInput.setAttribute('autocomplete', 'current-password');
+    }, 200);
+  };
+
+  const openModal = () => {
+    if (!modal.hidden && modal.classList.contains('is-open')) return;
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('auth-modal-open');
+    requestAnimationFrame(() => {
+      modal.classList.add('is-open');
+      emailInput.focus();
+    });
+  };
+
+  const setMode = (nextMode) => {
+    mode = nextMode;
+    if (mode === 'signup') {
+      titleEl.textContent = 'Créer un compte';
+      submitButton.textContent = "S'inscrire";
+      toggleModeButton?.setAttribute('data-mode', 'signup');
+      toggleModeButton && (toggleModeButton.textContent = 'Déjà un compte ? Se connecter');
+      nameGroup?.removeAttribute('hidden');
+      passwordInput.setAttribute('autocomplete', 'new-password');
+    } else {
+      titleEl.textContent = 'Connexion';
+      submitButton.textContent = 'Se connecter';
+      toggleModeButton?.setAttribute('data-mode', 'login');
+      toggleModeButton && (toggleModeButton.textContent = 'Créer un compte');
+      nameGroup?.setAttribute('hidden', '');
+      passwordInput.setAttribute('autocomplete', 'current-password');
+    }
+    clearFeedback();
+  };
+
+  const handleAuthResult = (user) => {
+    if (user) {
+      closeModal();
+    }
+  };
+
+  const update = (user) => {
+    if (user) {
+      authButton.textContent = 'Se déconnecter';
+      authButton.dataset.authenticated = 'true';
+      if (authUser) {
+        authUser.textContent = getUserDisplayName(user);
+        authUser.hidden = false;
+      }
+      handleAuthResult(user);
+    } else {
+      authButton.textContent = 'Se connecter';
+      authButton.dataset.authenticated = 'false';
+      if (authUser) {
+        authUser.hidden = true;
+        authUser.textContent = '';
+      }
+    }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (isSubmitting) return;
+
+    clearFeedback();
+
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    const name = nameInput?.value.trim();
+
+    submitButton.disabled = true;
+    toggleModeButton && (toggleModeButton.disabled = true);
+    isSubmitting = true;
+
+    try {
+      if (mode === 'signup') {
+        await registerWithEmailPassword({ email, password, name });
+      } else {
+        await loginWithEmailPassword({ email, password });
+      }
+    } catch (error) {
+      console.error('Erreur lors de la gestion de la connexion Appwrite :', error);
+      showFeedback(error?.message ?? 'Une erreur est survenue.');
+      return;
+    } finally {
+      submitButton.disabled = false;
+      toggleModeButton && (toggleModeButton.disabled = false);
+      isSubmitting = false;
+    }
+  };
+
+  onAuthStateChange(update);
+  loadCurrentUser().catch((error) => {
+    console.warn('Impossible de vérifier la session Appwrite :', error);
+  });
+
+  authButton.addEventListener('click', async () => {
+    const isAuthenticated = authButton.dataset.authenticated === 'true';
+    if (isAuthenticated) {
+      try {
+        authButton.disabled = true;
+        await logout();
+      } catch (error) {
+        console.error('Erreur lors de la déconnexion Appwrite :', error);
+      } finally {
+        authButton.disabled = false;
+      }
+      return;
+    }
+
+    if (!modal.hidden) {
+      closeModal();
+    } else {
+      openModal();
+    }
+  });
+
+  form.addEventListener('submit', handleSubmit);
+
+  toggleModeButton?.addEventListener('click', () => {
+    setMode(mode === 'login' ? 'signup' : 'login');
+  });
+
+  closeButtons.forEach((button) => {
+    button.addEventListener('click', () => closeModal());
+  });
+
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      closeModal();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !modal.hidden) {
+      closeModal();
+    }
+  });
 }
 
 function updateTotals({ globalKilometers = 0, ridesCount = 0 }) {
@@ -135,11 +330,20 @@ function renderTopList(selector, rides) {
           <div>
             <strong>${ride.schoolName}</strong> – ${formatDistance(ride.totalDistance)}
           </div>
-          <small>${formatDateTime(ride.createdAt)}</small>
+          <small>Par ${getRideAuthorLabel(ride)} • ${formatDateTime(ride.createdAt)}</small>
         </li>
       `
     )
     .join('');
+}
+
+function getRideAuthorLabel(ride) {
+  if (!ride) return 'Participant';
+  const name = ride.authorName?.trim();
+  if (name) return name;
+  const email = ride.authorEmail?.trim();
+  if (email) return email;
+  return 'Participant';
 }
 
 function setupCtaSchoolSelector() {

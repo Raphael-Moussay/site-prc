@@ -1,9 +1,12 @@
-import { Client, Databases, Storage, Query, ID, Permission, Role } from 'appwrite';
+import { Client, Databases, Storage, Query, ID, Permission, Role, Account } from 'appwrite';
 import { appwriteConfig, appwriteOptions } from './appwrite-config.js';
 
 let clientInstance;
 let databasesInstance;
 let storageInstance;
+let accountInstance;
+let currentUser = null;
+const authListeners = new Set();
 
 const schools = [
   { code: 'angers', displayName: 'Polytech Angers', objective: 600 },
@@ -28,6 +31,208 @@ let objectiveOverrides = new Map();
 let schoolSettingsLoaded = false;
 let schoolSettingsLoadingPromise = null;
 let schoolSettingsRealtimeUnsubscribe = null;
+let currentUserTeamIds = null; // Cache des IDs de teams de l'utilisateur courant
+let currentUserTeamMeta = null; // { idsSet: Set<string>, namesSet: Set<string> }
+
+function notifyAuthListeners() {
+  authListeners.forEach((listener) => {
+    try {
+      listener(currentUser);
+    } catch (error) {
+      console.error('Erreur dans un listener auth Appwrite :', error);
+    }
+  });
+}
+
+function setCurrentUser(user) {
+  const next = user ?? null;
+  const prev = currentUser ?? null;
+  // Ne notifie que si l'état change vraiment (évite les boucles avec 401 répétés)
+  const prevId = typeof prev === 'object' && prev ? prev.$id ?? prev.id ?? null : null;
+  const nextId = typeof next === 'object' && next ? next.$id ?? next.id ?? null : null;
+  const changed = prevId !== nextId;
+  currentUser = next;
+  if (changed) notifyAuthListeners();
+}
+
+function account() {
+  if (!accountInstance) {
+    initializeAppwrite();
+  }
+  return accountInstance;
+}
+
+export function onAuthStateChange(callback) {
+  if (typeof callback !== 'function') return () => {};
+  authListeners.add(callback);
+  callback(currentUser);
+  return () => authListeners.delete(callback);
+}
+
+export function getCurrentUser() {
+  return currentUser;
+}
+
+export async function loadCurrentUser({ force = false } = {}) {
+  if (currentUser && !force) return currentUser;
+
+  try {
+    const user = await account().get();
+    setCurrentUser(user);
+    return user;
+  } catch (error) {
+    if (error?.code === 401 || error?.response?.code === 401) {
+      // Marque comme non authentifié sans spammer les listeners si déjà null
+      setCurrentUser(null);
+      return null;
+    }
+    console.warn('Impossible de récupérer la session utilisateur Appwrite :', error);
+    setCurrentUser(null);
+    return null;
+  }
+}
+
+function cleanAuthRedirectParams() {
+  if (typeof window === 'undefined') return;
+  try {
+    const url = new URL(window.location.href);
+  const paramsToRemove = ['userId', 'secret', 'expire', 'state', 'auth', 'scope'];
+    let mutated = false;
+    paramsToRemove.forEach((param) => {
+      if (url.searchParams.has(param)) {
+        url.searchParams.delete(param);
+        mutated = true;
+      }
+    });
+
+    if (mutated) {
+      const newSearch = url.searchParams.toString();
+      const newUrl = `${url.pathname}${newSearch ? `?${newSearch}` : ''}${url.hash}`;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  } catch (error) {
+    console.warn('Impossible de nettoyer les paramètres OAuth Appwrite :', error);
+  }
+}
+
+export function loginWithGoogle({ successUrl, failureUrl } = {}) {
+  const baseUrl = typeof window !== 'undefined' ? window.location.href : null;
+  const success = successUrl
+    ? new URL(successUrl, window.location.origin)
+    : baseUrl
+      ? new URL(baseUrl)
+      : null;
+  const failure = failureUrl
+    ? new URL(failureUrl, window.location.origin)
+    : success
+      ? new URL(success.toString())
+      : null;
+
+  if (success) {
+    success.searchParams.set('auth', 'success');
+  }
+  if (failure) {
+    failure.searchParams.set('auth', 'failure');
+  }
+
+  return account().createOAuth2Session('google', success?.toString(), failure?.toString());
+}
+
+async function createEmailPasswordSession({ email, password }) {
+  const apiPath = '/account/sessions/email';
+  const sdkClient = client();
+  const uri = new URL(`${sdkClient.config.endpoint}${apiPath}`);
+  const headers = { 'content-type': 'application/json' };
+  const payload = { email, password };
+
+  return sdkClient.call('post', uri, headers, payload);
+}
+
+export async function loginWithEmailPassword({ email, password } = {}) {
+  const normalizedEmail = (email ?? '').toString().trim().toLowerCase();
+  const normalizedPassword = (password ?? '').toString();
+
+  if (!normalizedEmail) {
+    throw new Error("L'email est requis pour la connexion.");
+  }
+
+  if (!normalizedPassword) {
+    throw new Error('Le mot de passe est requis pour la connexion.');
+  }
+
+  try {
+    await createEmailPasswordSession({ email: normalizedEmail, password: normalizedPassword });
+    await loadCurrentUser({ force: true });
+    return getCurrentUser();
+  } catch (error) {
+    const response = error?.response ?? {};
+    const code = error?.code ?? response.code;
+    const message = error?.message ?? response.message ?? '';
+    if (code === 401 || /invalid credentials/i.test(message)) {
+      throw new Error('Email ou mot de passe invalide.');
+    }
+    throw toAppwriteError(error, 'Connexion impossible. Vérifiez vos identifiants.');
+  }
+}
+
+export async function registerWithEmailPassword({ email, password, name } = {}) {
+  const normalizedEmail = (email ?? '').toString().trim().toLowerCase();
+  const normalizedPassword = (password ?? '').toString();
+  const normalizedName = (name ?? '').toString().trim();
+
+  if (!normalizedEmail) {
+    throw new Error("L'email est requis pour créer un compte.");
+  }
+
+  if (!normalizedPassword || normalizedPassword.length < 8) {
+    throw new Error('Le mot de passe doit contenir au moins 8 caractères.');
+  }
+
+  try {
+    await account().create({
+      userId: ID.unique(),
+      email: normalizedEmail,
+      password: normalizedPassword,
+      name: normalizedName || undefined,
+    });
+  } catch (error) {
+    throw toAppwriteError(error, "Impossible de créer le compte. L'email est peut-être déjà utilisé.");
+  }
+
+  await loginWithEmailPassword({ email: normalizedEmail, password: normalizedPassword });
+  return getCurrentUser();
+}
+
+export async function logout() {
+  try {
+    await account().deleteSession('current');
+  } catch (error) {
+    console.warn('Impossible de supprimer la session Appwrite :', error);
+  } finally {
+    setCurrentUser(null);
+  }
+}
+
+export function getUserDisplayName(user) {
+  if (!user) return '';
+  if (user.name?.trim()) return user.name.trim();
+  const first = user.firstName?.trim() ?? '';
+  const last = user.lastName?.trim() ?? '';
+  const fallback = `${first} ${last}`.trim();
+  if (fallback) return fallback;
+  return user.email ?? user.$id ?? '';
+}
+
+async function requireAuthenticatedUser({ reason } = {}) {
+  const existing = getCurrentUser();
+  if (existing) return existing;
+
+  const user = await loadCurrentUser({ force: true });
+  if (user) return user;
+
+  const defaultMessage = 'Connectez-vous pour continuer.';
+  throw new Error(reason ?? defaultMessage);
+}
 
 function applySchoolSettings(documents = []) {
   const overrides = new Map();
@@ -53,11 +258,112 @@ function applySchoolSettings(documents = []) {
 }
 
 function toAppwriteError(error, fallbackMessage) {
-  if (error instanceof Error) return error;
+
   if (error && typeof error === 'object') {
-    const message = error.message ?? error.response?.message;
-    if (message) return new Error(message);
+    const response = error.response ?? {};
+    const code = error.code ?? response.code;
+    const type = error.type ?? response.type;
+    const message = error.message ?? response.message;
+    const detailedErrors = response.errors ?? error.errors;
+
+    if (code === 401) {
+      // 401 peut provenir d'actions non autorisées sur des ressources
+      return new Error("Action non autorisée. Vous n'avez pas les droits pour effectuer cette action.");
+    }
+
+    if (code === 409) {
+      return new Error('Un compte existe déjà avec cet email. Essayez de vous connecter.');
+    }
+
+    if (code === 400 && type === 'general_argument_invalid') {
+      return new Error('Vérifiez le format de vos informations (email valide, mot de passe ≥ 8 caractères).');
+    }
+
+    if (code === 400 && (type === 'general_bad_request' || (message && /there was an error processing your request/i.test(message)))) {
+      return new Error('Impossible de traiter votre demande. Vérifiez vos informations et réessayez.');
+    }
+
+    if (code === 429 || (message && message.toLowerCase().includes('rate limit'))) {
+      return new Error('Trop de tentatives sur une courte période. Réessayez dans quelques instants.');
+    }
+
+    if (code === 403 && message && message.toLowerCase().includes('disabled')) {
+      return new Error("La connexion email/mot de passe est désactivée dans la console Appwrite.");
+    }
+
+    if (Array.isArray(detailedErrors) && detailedErrors.length) {
+      const firstString = detailedErrors.find((entry) => typeof entry === 'string' && entry.trim());
+      if (firstString) {
+        // Traduction rapide des messages fréquents
+        if (/invalid\s*email/i.test(firstString) || /valid email/i.test(firstString)) {
+          return new Error('Email invalide. Utilisez une adresse valide.');
+        }
+        if (/password/i.test(firstString) && /least|minimum|8/i.test(firstString)) {
+          return new Error('Le mot de passe doit contenir au moins 8 caractères.');
+        }
+        return new Error(firstString);
+      }
+
+      const firstMessage = detailedErrors
+        .map((entry) => (entry && typeof entry === 'object' ? entry.message : null))
+        .find((entry) => typeof entry === 'string' && entry.trim());
+      if (firstMessage) {
+        if (/invalid\s*email/i.test(firstMessage) || /valid email/i.test(firstMessage)) {
+          return new Error('Email invalide. Utilisez une adresse valide.');
+        }
+        if (/password/i.test(firstMessage) && /least|minimum|8/i.test(firstMessage)) {
+          return new Error('Le mot de passe doit contenir au moins 8 caractères.');
+        }
+        return new Error(firstMessage);
+      }
+    }
+
+    if (detailedErrors && typeof detailedErrors === 'object' && !Array.isArray(detailedErrors)) {
+      const firstKey = Object.keys(detailedErrors).find(Boolean);
+      if (firstKey) {
+        const value = detailedErrors[firstKey];
+        if (Array.isArray(value) && value.length) {
+          const first = value.find((entry) => typeof entry === 'string' && entry.trim());
+          if (first) {
+            if (/invalid\s*email/i.test(first) || /valid email/i.test(first)) {
+              return new Error('Email invalide. Utilisez une adresse valide.');
+            }
+            if (/password/i.test(first) && /least|minimum|8/i.test(first)) {
+              return new Error('Le mot de passe doit contenir au moins 8 caractères.');
+            }
+            return new Error(first);
+          }
+        }
+        if (typeof value === 'string' && value.trim()) {
+          if (/invalid\s*email/i.test(value) || /valid email/i.test(value)) {
+            return new Error('Email invalide. Utilisez une adresse valide.');
+          }
+          if (/password/i.test(value) && /least|minimum|8/i.test(value)) {
+            return new Error('Le mot de passe doit contenir au moins 8 caractères.');
+          }
+          return new Error(value);
+        }
+      }
+    }
+
+    if (message) {
+      // Traduire quelques messages génériques
+      if (/there was an error processing your request/i.test(message) || type === 'general_bad_request') {
+        return new Error('Impossible de traiter votre demande. Vérifiez vos informations et réessayez.');
+      }
+      if (/invalid\s*email/i.test(message) || /valid email/i.test(message)) {
+        return new Error('Email invalide. Utilisez une adresse valide.');
+      }
+      if (/invalid credentials/i.test(message)) {
+        return new Error('Email ou mot de passe invalide.');
+      }
+      if (/password/i.test(message) && /least|minimum|8/i.test(message)) {
+        return new Error('Le mot de passe doit contenir au moins 8 caractères.');
+      }
+      return new Error(message);
+    }
   }
+
   return new Error(fallbackMessage);
 }
 
@@ -99,15 +405,127 @@ function getObjectiveOverride(code) {
 
 function getAdminTeamIdsForSchool(schoolCode) {
   const teams = [];
-  if (appwriteConfig.globalAdminTeamId) {
-    teams.push(appwriteConfig.globalAdminTeamId);
-  }
   const schoolTeams = appwriteConfig.schoolAdminTeams ?? {};
   const teamId = schoolTeams[schoolCode];
   if (teamId) {
     teams.push(teamId);
   }
   return teams;
+}
+
+async function loadCurrentUserTeamIds() {
+  // Retourne un Set des teamIds pour lesquels l'utilisateur courant est membre
+  if (currentUserTeamIds instanceof Set) return currentUserTeamIds;
+  // Si pas d'utilisateur connecté, renvoie un Set vide sans appeler l'API
+  const user = getCurrentUser();
+  if (!user) {
+    currentUserTeamIds = new Set();
+    currentUserTeamMeta = { idsSet: new Set(), namesSet: new Set() };
+    return currentUserTeamIds;
+  }
+
+  // Certains environnements peuvent exposer les memberships dans l'objet user
+  const direct = Array.isArray(user?.memberships) ? user.memberships : Array.isArray(user?.$memberships) ? user.$memberships : null;
+  let memberships = Array.isArray(direct) ? direct : [];
+
+  if (!memberships.length) {
+    try {
+      if (typeof account().listMemberships === 'function') {
+        const result = await account().listMemberships();
+        memberships = Array.isArray(result?.memberships) ? result.memberships : Array.isArray(result) ? result : [];
+      } else {
+        // API indisponible dans ce SDK, on continue avec une liste vide sans lever d'erreur
+        memberships = [];
+      }
+    } catch (e) {
+      console.warn("Impossible de récupérer les équipes de l'utilisateur :", e);
+      memberships = [];
+    }
+  }
+
+  const ids = memberships
+    .map((m) => m?.teamId ?? m?.team?.$id ?? m?.team?.id ?? null)
+    .filter((v) => typeof v === 'string' && v.trim().length);
+
+  const names = memberships
+    .map((m) => m?.team?.name ?? m?.teamName ?? null)
+    .filter((v) => typeof v === 'string' && v.trim().length)
+    .map((v) => v.toLowerCase());
+
+  currentUserTeamIds = new Set(ids);
+  currentUserTeamMeta = { idsSet: new Set(ids), namesSet: new Set(names) };
+  return currentUserTeamIds;
+}
+
+async function getAssignableAdminTeamIdsForSchool(schoolCode) {
+  // Intersecte les équipes admin configurées avec les équipes du user (Appwrite n'autorise à accorder que ses propres rôles)
+  const configured = getAdminTeamIdsForSchool(schoolCode);
+  if (!configured.length) return [];
+  // Si pas d'utilisateur connecté, inutile d'interroger les memberships
+  if (!getCurrentUser()) return [];
+  let userTeams = null;
+  try {
+    userTeams = await loadCurrentUserTeamIds();
+  } catch (e) {
+    userTeams = new Set();
+  }
+  return configured.filter((teamId) => userTeams.has(teamId));
+}
+
+// Détermine les capacités d'administration pour l'utilisateur courant
+async function userHasTeam(teamOrName) {
+  if (!teamOrName) return false;
+  try {
+    await loadCurrentUserTeamIds();
+    const idsSet = currentUserTeamMeta?.idsSet ?? currentUserTeamIds ?? new Set();
+    if (idsSet.has(teamOrName)) return true;
+    const namesSet = currentUserTeamMeta?.namesSet ?? new Set();
+    return typeof teamOrName === 'string' && namesSet.has(teamOrName.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+export async function isOwner() {
+  const ownerTeamId = appwriteConfig.globalAdminTeamId;
+  // 1) Tentative via teams/memberships
+  if (ownerTeamId && (await userHasTeam(ownerTeamId))) return true;
+  // 2) Fallback via email si configuré
+  try {
+    const user = getCurrentUser();
+    if (!user) return false;
+    const email = (user?.email || '').toLowerCase();
+    const list = Array.isArray(appwriteConfig.ownerEmails) ? appwriteConfig.ownerEmails : [];
+    return list.map((e) => String(e).toLowerCase()).includes(email);
+  } catch {
+    return false;
+  }
+}
+
+export async function isSchoolAdmin(schoolCode) {
+  if (!schoolCode) return false;
+  // 1) Propriétaire a tous les droits
+  if (await isOwner()) return true;
+  // 2) Tentative via team de l'école
+  const schoolTeamId = (appwriteConfig.schoolAdminTeams ?? {})[schoolCode];
+  if (await userHasTeam(schoolTeamId)) return true;
+  // 3) Fallback via email si configuré
+  try {
+    const user = getCurrentUser();
+    if (!user) return false;
+    const email = (user?.email || '').toLowerCase();
+    const map = appwriteConfig.schoolAdminEmails ?? {};
+    const list = Array.isArray(map[schoolCode]) ? map[schoolCode] : [];
+    return list.map((e) => String(e).toLowerCase()).includes(email);
+  } catch {
+    return false;
+  }
+}
+
+export async function canManageSchool(schoolCode) {
+  // Si pas connecté, inutile de faire des vérifications supplémentaires
+  if (!getCurrentUser()) return false;
+  return isSchoolAdmin(schoolCode);
 }
 
 function buildAdminDocumentPermissions(schoolCode, actions = ['update', 'delete']) {
@@ -135,11 +553,32 @@ export function initializeAppwrite() {
   }
 
   clientInstance = new Client();
-  clientInstance.setEndpoint(appwriteConfig.endpoint);
+
+  const { devProxy } = appwriteConfig ?? {};
+  let endpointToUse = appwriteConfig.endpoint;
+
+  if (typeof window !== 'undefined' && devProxy?.enabled) {
+    const origin = window.location.origin;
+    const allowedOrigins = Array.isArray(devProxy.allowedOrigins) ? devProxy.allowedOrigins : [];
+    const shouldUseProxy = !allowedOrigins.length || allowedOrigins.includes(origin);
+
+    if (shouldUseProxy && typeof devProxy.path === 'string' && devProxy.path.length) {
+      const normalizedPath = devProxy.path.startsWith('/') ? devProxy.path : `/${devProxy.path}`;
+      endpointToUse = `${origin}${normalizedPath}`;
+    }
+  }
+
+  clientInstance.setEndpoint(endpointToUse);
   clientInstance.setProject(appwriteConfig.projectId);
 
   databasesInstance = new Databases(clientInstance);
   storageInstance = new Storage(clientInstance);
+  accountInstance = new Account(clientInstance);
+
+  cleanAuthRedirectParams();
+  loadCurrentUser().catch((error) => {
+    console.warn('Impossible de charger la session utilisateur Appwrite au démarrage :', error);
+  });
 
   if (appwriteConfig.schoolSettingsCollectionId) {
     loadSchoolSettings().catch((error) => {
@@ -234,27 +673,61 @@ export async function setSchoolObjective({ schoolCode, objective }) {
   const collectionId = appwriteConfig.schoolSettingsCollectionId;
   const documentId = normalizedCode;
 
-  const payload = {
-    schoolCode: normalizedCode,
-    objective: numericObjective,
-  };
+  // On tente plusieurs variantes pour couvrir les schémas possibles:
+  // - objective (double requis)
+  // - objectiveOverride (fallback si le schéma utilise ce nom)
+  // - avec et sans schoolCode, car certaines configurations exigent schoolCode comme attribut requis
+  const payloadVariants = [
+    { objective: numericObjective, schoolCode: normalizedCode },
+    { objective: numericObjective },
+    { objectiveOverride: numericObjective, schoolCode: normalizedCode },
+    { objectiveOverride: numericObjective },
+  ];
 
   const permissions = [
     Permission.read(Role.any()),
+    // Autoriser les équipes admin à lire, mettre à jour et supprimer (la création se gère au niveau collection)
     ...buildAdminDocumentPermissions(normalizedCode, ['read', 'update', 'delete']),
   ];
 
   try {
-    await databases().updateDocument(databaseId, collectionId, documentId, payload);
+    // Tente une mise à jour avec les variantes de champ
+    let updated = false;
+    for (const variant of payloadVariants) {
+      try {
+        await databases().updateDocument(databaseId, collectionId, documentId, variant);
+        updated = true;
+        break;
+      } catch (e) {
+        // continue avec la variante suivante
+      }
+    }
+    if (!updated) {
+      // Si aucune mise à jour n'a fonctionné, propage l'erreur initiale pour enclencher le create
+      throw { code: 404 };
+    }
   } catch (error) {
     if (error?.code === 404 || error?.response?.code === 404) {
-      try {
-        await databases().createDocument(databaseId, collectionId, documentId, payload, permissions);
-      } catch (createError) {
-        throw toAppwriteError(createError, "Impossible de créer l'objectif pour cette école.");
+      // Le document n'existe pas: tente la création avec les variantes
+      let created = false;
+      let lastError = null;
+      for (const variant of payloadVariants) {
+        try {
+          await databases().createDocument(databaseId, collectionId, documentId, variant, permissions);
+          created = true;
+          break;
+        } catch (createError) {
+          lastError = createError;
+        }
+      }
+      if (!created) {
+        // Message plus précis pour aider au diagnostic de schéma Appwrite
+        const hint = "Impossible de créer l'objectif. Vérifiez la collection 'school-settings' : attribut 'objective' (double) requis, et si 'schoolCode' est requis, il doit être de type string et ≤ 16 caractères. Assurez aussi les droits Create au niveau collection pour vos équipes.";
+        throw toAppwriteError(lastError, hint);
       }
     } else {
-      throw toAppwriteError(error, "Impossible de mettre à jour l'objectif de l'école.");
+      const hint = "Impossible de mettre à jour l'objectif. Vérifiez que l'attribut ('objective' ou 'objectiveOverride') existe et est de type nombre.";
+      throw toAppwriteError(error, hint);
     }
   }
 
@@ -276,14 +749,23 @@ export function formatDateTime(dateLike) {
 }
 
 export async function uploadProof({ schoolCode, file }) {
+  // Autoriser l'upload même sans session: on adapte les permissions
+  // Ne pas déclencher d'appel réseau vers /account si l'utilisateur n'est pas déjà connu
+  let user = getCurrentUser() || null;
   const safeName = file.name.replace(/[^a-z0-9.\-]/gi, '_').toLowerCase();
   const uniqueId = ID.unique();
   const storagePath = `${schoolCode}/${uniqueId}_${safeName}`;
-  const filePermissions = [Permission.read(Role.any())];
-
-  if (appwriteOptions.allowAnonymousWrites) {
-    filePermissions.push(Permission.update(Role.any()), Permission.delete(Role.any()));
-  }
+  const teamIds = await getAssignableAdminTeamIdsForSchool(schoolCode);
+  const filePermissions = [
+    Permission.read(Role.any()),
+    // Si utilisateur connecté: il peut gérer son fichier
+    ...(user ? [Permission.update(Role.user(user.$id)), Permission.delete(Role.user(user.$id))] : []),
+    // Dans tous les cas: les équipes admin peuvent gérer
+    ...teamIds.flatMap((teamId) => [
+      Permission.update(Role.team(teamId)),
+      Permission.delete(Role.team(teamId)),
+    ]),
+  ];
 
   const response = await storage().createFile(
     appwriteConfig.proofsBucketId,
@@ -299,8 +781,12 @@ export async function uploadProof({ schoolCode, file }) {
   return { storagePath, fileId: response.$id, downloadUrl };
 }
 
-export async function createRide({ schoolCode, schoolName, totalDistance, proofs, notes, createdAt }) {
+export async function createRide({ schoolCode, schoolName, totalDistance, proofs, notes, createdAt, firstName, lastName, speciality }) {
+  // Essayer de récupérer l'utilisateur (sans nouvel appel réseau si non chargé)
+  let user = getCurrentUser() || null;
+  const authorName = user ? getUserDisplayName(user) : [firstName, lastName].filter(Boolean).join(' ').trim();
   const documentId = ID.unique();
+  const teamIds = await getAssignableAdminTeamIdsForSchool(schoolCode);
   const serializedProofs = Array.isArray(proofs)
     ? JSON.stringify(
         proofs.map((proof) => ({
@@ -318,13 +804,24 @@ export async function createRide({ schoolCode, schoolName, totalDistance, proofs
     proofs: serializedProofs,
     notes: notes || '',
     createdAt: (createdAt || new Date()).toISOString(),
+    authorId: user ? user.$id : null,
+    authorName,
+    authorEmail: user?.email ?? '',
+    firstName: user ? undefined : (firstName ?? ''),
+    lastName: user ? undefined : (lastName ?? ''),
+    speciality: user ? undefined : (speciality ?? ''),
   };
 
-  const permissions = [Permission.read(Role.any())];
-
-  if (appwriteOptions.allowAnonymousWrites) {
-    permissions.push(Permission.update(Role.any()), Permission.delete(Role.any()));
-  }
+  const permissions = [
+    Permission.read(Role.any()),
+    // Si utilisateur connecté: il peut modifier/supprimer sa publication
+    ...(user ? [Permission.update(Role.user(user.$id)), Permission.delete(Role.user(user.$id))] : []),
+    // Les équipes admin gèrent toujours
+    ...teamIds.flatMap((teamId) => [
+      Permission.update(Role.team(teamId)),
+      Permission.delete(Role.team(teamId)),
+    ]),
+  ];
 
   await databases().createDocument(
     appwriteConfig.databaseId,
@@ -335,6 +832,39 @@ export async function createRide({ schoolCode, schoolName, totalDistance, proofs
   );
 
   return documentId;
+}
+
+// Mise à jour d'une publication (trajet)
+export async function updateRide(rideId, fields) {
+  if (!rideId) throw new Error("Identifiant de publication manquant.");
+  try {
+    await databases().updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.ridesCollectionId,
+      rideId,
+      fields
+    );
+  } catch (error) {
+    throw toAppwriteError(error, 'Impossible de modifier la publication.');
+  }
+}
+
+// Suppression d'une publication (trajet)
+export async function deleteRide(rideId) {
+  if (!rideId) throw new Error("Identifiant de publication manquant.");
+  try {
+    // Important: pour que les équipes admin/owner puissent supprimer n'importe quelle publication,
+    // configurez la collection "rides" en permissions au niveau de la collection (update/delete)
+    // pour les équipes concernées, OU mettez en place une fonction backend qui ajoute ces permissions
+    // aux documents après création. Sinon, un utilisateur ne peut pas accorder des rôles qu'il ne possède pas.
+    await databases().deleteDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.ridesCollectionId,
+      rideId
+    );
+  } catch (error) {
+    throw toAppwriteError(error, 'Impossible de supprimer la publication.');
+  }
 }
 
 export function subscribeToLeaderboard({ onTotalsUpdate, onLeaderboardUpdate, onDailyTop, onWeeklyTop }) {
@@ -361,16 +891,37 @@ export function listenToSchoolTotals(schoolCode, callback) {
       console.error(`Erreur Appwrite (stats temps réel ${schoolCode}) :`, error);
     });
 
-  const cancelRealtime = appwriteOptions.enableRealtime
-    ? client().subscribe(
-        `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.ridesCollectionId}.documents`,
-        handler
-      )
-    : () => {};
+  let unsubscribes = [];
 
+  if (appwriteOptions.enableRealtime) {
+    // 1) Rafraîchir sur tout changement de trajets (impacte total distance et count)
+    const unsubRides = client().subscribe(
+      `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.ridesCollectionId}.documents`,
+      handler
+    );
+    unsubscribes.push(unsubRides);
+
+    // 2) Rafraîchir aussi sur changement des paramètres d'école (objectif personnalisé)
+    if (appwriteConfig.schoolSettingsCollectionId) {
+      const unsubSettings = client().subscribe(
+        `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.schoolSettingsCollectionId}.documents`,
+        handler
+      );
+      unsubscribes.push(unsubSettings);
+    }
+  }
+
+  // Exécution initiale
   handler();
 
-  return () => cancelRealtime();
+  return () => {
+    unsubscribes.forEach((u) => {
+      try {
+        typeof u === 'function' ? u() : u?.();
+      } catch {}
+    });
+    unsubscribes = [];
+  };
 }
 
 export async function fetchRecentRides(schoolCode, { limitCount = 6 } = {}) {
@@ -381,6 +932,31 @@ export async function fetchRecentRides(schoolCode, { limitCount = 6 } = {}) {
   ]);
 
   return response.documents.map((doc) => normalizeRide(doc.$id, doc));
+}
+
+// Recalcule une fois les totaux pour une école (sans abonnement)
+export async function getSchoolTotals(schoolCode) {
+  try {
+    await loadSchoolSettings();
+  } catch {}
+
+  const response = await databases().listDocuments(appwriteConfig.databaseId, appwriteConfig.ridesCollectionId, [
+    Query.equal('schoolCode', schoolCode),
+    Query.orderDesc('createdAt'),
+    Query.limit(200),
+  ]);
+
+  let totalDistance = 0;
+  let ridesCount = 0;
+
+  response.documents.forEach((doc) => {
+    const ride = normalizeRide(doc.$id, doc);
+    totalDistance += ride.totalDistance;
+    ridesCount += 1;
+  });
+
+  const objective = getSchoolByCode(schoolCode)?.objective ?? 0;
+  return { totalDistance, ridesCount, objective };
 }
 
 async function refreshLeaderboard({ onTotalsUpdate, onLeaderboardUpdate, onDailyTop, onWeeklyTop }) {
@@ -458,11 +1034,15 @@ async function aggregateTotalsForSchool(schoolCode, callback) {
 function normalizeRide(id, data) {
   const createdAt = data.createdAt ? new Date(data.createdAt) : new Date();
   const proofs = deserializeProofs(data.proofs);
+  const permissions = Array.isArray(data.$permissions) ? data.$permissions.slice() : [];
   return {
     id,
     schoolCode: data.schoolCode,
     schoolName: data.schoolName,
     totalDistance: Number(data.totalDistance) || 0,
+    authorId: data.authorId ?? null,
+    authorName: data.authorName ?? '',
+    authorEmail: data.authorEmail ?? '',
     proofs: proofs.map((proof) => ({
       storagePath: proof.storagePath,
       fileId: proof.fileId,
@@ -471,6 +1051,7 @@ function normalizeRide(id, data) {
     })),
     notes: data.notes ?? '',
     createdAt,
+    permissions,
   };
 }
 

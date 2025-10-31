@@ -7,16 +7,32 @@ import {
   createRide,
   listenToSchoolTotals,
   fetchRecentRides,
+  getSchoolTotals,
   uploadProof,
   setupHeaderAutoHide,
   setupScrollToTopButton,
+  onAuthStateChange,
+  loadCurrentUser,
+  loginWithEmailPassword,
+  registerWithEmailPassword,
+  logout,
+  getUserDisplayName,
   getSchoolObjective,
+  setSchoolObjective,
+  canManageSchool,
+  updateRide,
+  deleteRide,
 } from './core.js';
+import { appwriteConfig } from './appwrite-config.js';
 
 const params = new URLSearchParams(window.location.search);
 const schoolCode = params.get('code');
 const schools = getSchools();
 const school = getSchoolByCode(schoolCode) ?? schools[0];
+let currentUser = null;
+let canManage = false;
+let postsGridHandlerAttached = false;
+let lastRides = [];
 
 initializeAppwrite();
 
@@ -37,6 +53,7 @@ setupPageContent();
 setupNavigationToggle();
 setupHeaderAutoHide();
 setupScrollToTopButton();
+setupAuthControls();
 setupForm();
 setupRealtimeStats();
 refreshPosts();
@@ -78,6 +95,216 @@ function setupNavigationToggle() {
   );
 }
 
+function setupAuthControls() {
+  const authButton = document.querySelector('#auth-button');
+  const authUser = document.querySelector('#auth-user');
+  const modal = document.querySelector('#auth-modal');
+  const form = modal?.querySelector('#auth-form');
+  const emailInput = modal?.querySelector('#auth-email');
+  const passwordInput = modal?.querySelector('#auth-password');
+  const nameGroup = modal?.querySelector('#auth-name-group');
+  const nameInput = modal?.querySelector('#auth-name');
+  const toggleModeButton = modal?.querySelector('#auth-toggle-mode');
+  const feedbackEl = modal?.querySelector('#auth-feedback');
+  const titleEl = modal?.querySelector('#auth-modal-title');
+  const submitButton = modal?.querySelector('[data-auth-submit]');
+  const closeButtons = modal ? Array.from(modal.querySelectorAll('[data-auth-close]')) : [];
+
+  if (!authButton || !form || !modal || !emailInput || !passwordInput || !feedbackEl || !titleEl || !submitButton) {
+    return;
+  }
+
+  let mode = 'login';
+  let isSubmitting = false;
+
+  const clearFeedback = () => {
+    feedbackEl.textContent = '';
+    feedbackEl.hidden = true;
+    delete feedbackEl.dataset.type;
+  };
+
+  const showFeedback = (message, type = 'error') => {
+    feedbackEl.textContent = message;
+    feedbackEl.dataset.type = type;
+    feedbackEl.hidden = false;
+  };
+
+  const closeModal = () => {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('auth-modal-open');
+    setTimeout(() => {
+      modal.hidden = true;
+      form.reset();
+      clearFeedback();
+      mode = 'login';
+      nameGroup?.setAttribute('hidden', '');
+      titleEl.textContent = 'Connexion';
+      submitButton.textContent = 'Se connecter';
+      toggleModeButton?.setAttribute('data-mode', 'login');
+      toggleModeButton && (toggleModeButton.textContent = 'Créer un compte');
+      passwordInput.setAttribute('autocomplete', 'current-password');
+    }, 200);
+  };
+
+  const openModal = () => {
+    if (!modal.hidden && modal.classList.contains('is-open')) return;
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('auth-modal-open');
+    requestAnimationFrame(() => {
+      modal.classList.add('is-open');
+      emailInput.focus();
+    });
+  };
+
+  const setMode = (nextMode) => {
+    mode = nextMode;
+    if (mode === 'signup') {
+      titleEl.textContent = 'Créer un compte';
+      submitButton.textContent = "S'inscrire";
+      toggleModeButton?.setAttribute('data-mode', 'signup');
+      toggleModeButton && (toggleModeButton.textContent = 'Déjà un compte ? Se connecter');
+      nameGroup?.removeAttribute('hidden');
+      passwordInput.setAttribute('autocomplete', 'new-password');
+    } else {
+      titleEl.textContent = 'Connexion';
+      submitButton.textContent = 'Se connecter';
+      toggleModeButton?.setAttribute('data-mode', 'login');
+      toggleModeButton && (toggleModeButton.textContent = 'Créer un compte');
+      nameGroup?.setAttribute('hidden', '');
+      passwordInput.setAttribute('autocomplete', 'current-password');
+    }
+    clearFeedback();
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (isSubmitting) return;
+
+    clearFeedback();
+
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    const name = nameInput?.value.trim();
+
+    submitButton.disabled = true;
+    toggleModeButton && (toggleModeButton.disabled = true);
+    isSubmitting = true;
+
+    try {
+      if (mode === 'signup') {
+        await registerWithEmailPassword({ email, password, name });
+      } else {
+        await loginWithEmailPassword({ email, password });
+      }
+    } catch (error) {
+      console.error('Erreur lors de la gestion de la connexion Appwrite :', error);
+      showFeedback(error?.message ?? 'Une erreur est survenue.');
+      return;
+    } finally {
+      submitButton.disabled = false;
+      toggleModeButton && (toggleModeButton.disabled = false);
+      isSubmitting = false;
+    }
+  };
+
+  const update = (user) => {
+    currentUser = user;
+    if (user) {
+      authButton.textContent = 'Se déconnecter';
+      authButton.dataset.authenticated = 'true';
+      if (authUser) {
+        authUser.textContent = getUserDisplayName(user);
+        authUser.hidden = false;
+      }
+      closeModal();
+    } else {
+      authButton.textContent = 'Se connecter';
+      authButton.dataset.authenticated = 'false';
+      if (authUser) {
+        authUser.hidden = true;
+        authUser.textContent = '';
+      }
+    }
+
+    syncFormWithAuth(user);
+    // Recalcule les droits de gestion et met à jour l'UI
+    canManageSchool(school.code)
+      .then((allowed) => {
+        const changed = canManage !== allowed;
+        canManage = allowed;
+        if (changed) {
+          refreshPosts(true);
+          ensureGoalEditControl();
+        }
+      })
+      .catch(() => {
+        canManage = false;
+        ensureGoalEditControl();
+      });
+  };
+
+  onAuthStateChange(update);
+  loadCurrentUser().catch((error) => {
+    console.warn('Impossible de vérifier la session Appwrite :', error);
+  });
+
+  authButton.addEventListener('click', async () => {
+    const isAuthenticated = authButton.dataset.authenticated === 'true';
+    if (isAuthenticated) {
+      try {
+        authButton.disabled = true;
+        await logout();
+      } catch (error) {
+        console.error('Erreur lors de la déconnexion Appwrite :', error);
+      } finally {
+        authButton.disabled = false;
+      }
+      return;
+    }
+
+    if (!modal.hidden) {
+      closeModal();
+    } else {
+      openModal();
+    }
+  });
+
+  form.addEventListener('submit', handleSubmit);
+
+  toggleModeButton?.addEventListener('click', () => {
+    setMode(mode === 'login' ? 'signup' : 'login');
+  });
+
+  closeButtons.forEach((button) => {
+    button.addEventListener('click', () => closeModal());
+  });
+
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      closeModal();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !modal.hidden) {
+      closeModal();
+    }
+  });
+}
+
+function syncFormWithAuth(user) {
+  if (!rideForm) return;
+  const isAuthenticated = Boolean(user);
+  // Le formulaire reste utilisable même sans connexion,
+  // mais on affiche des champs supplémentaires obligatoires.
+  const anonFields = document.querySelector('#anon-fields');
+  if (anonFields) anonFields.hidden = isAuthenticated;
+  // Ne pas désactiver le formulaire, mais nettoie le message d'auth
+  if (isAuthenticated && feedbackEl?.dataset.source === 'auth') hideFeedback();
+}
+
 function setupPageContent() {
   const yearEl = document.querySelector('#current-year');
   if (yearEl) yearEl.textContent = new Date().getFullYear().toString();
@@ -104,7 +331,9 @@ function setupForm() {
       rideForm.reset();
       proofsWrapper.innerHTML = '';
       addProofSlot();
+      // Rafraîchir immédiatement le flux et les stats locales
       refreshPosts();
+      refreshStatsOnce();
     } catch (error) {
       console.error(error);
       const userMessage = error instanceof Error && error.message
@@ -179,6 +408,18 @@ async function collectFormData() {
 
   const notes = (document.querySelector('#ride-notes')?.value ?? '').trim();
 
+  let firstName = '';
+  let lastName = '';
+  let speciality = '';
+  if (!currentUser) {
+    firstName = (document.querySelector('#anon-first-name')?.value ?? '').trim();
+    lastName = (document.querySelector('#anon-last-name')?.value ?? '').trim();
+    speciality = (document.querySelector('#anon-speciality')?.value ?? '').trim();
+    if (!firstName || !lastName || !speciality) {
+      throw new Error('Nom, prénom et spécialité sont requis si vous n’êtes pas connecté.');
+    }
+  }
+
   return {
     schoolCode: school.code,
     schoolName: school.displayName,
@@ -186,13 +427,15 @@ async function collectFormData() {
     proofs,
     notes,
     createdAt: new Date(),
+    ...(currentUser ? {} : { firstName, lastName, speciality }),
   };
 }
 
-function showFeedback(message, type = 'info') {
+function showFeedback(message, type = 'info', source = 'feedback') {
   if (!feedbackEl) return;
   feedbackEl.textContent = message;
   feedbackEl.dataset.type = type;
+  feedbackEl.dataset.source = source;
   feedbackEl.hidden = false;
 }
 
@@ -200,6 +443,7 @@ function hideFeedback() {
   if (!feedbackEl) return;
   feedbackEl.hidden = true;
   delete feedbackEl.dataset.type;
+  delete feedbackEl.dataset.source;
   feedbackEl.textContent = '';
 }
 
@@ -222,19 +466,100 @@ function setupRealtimeStats() {
     if (totalEl) totalEl.textContent = formatDistance(totalDistance);
     if (countEl) countEl.textContent = ridesCount.toString();
     if (goalEl) goalEl.textContent = formatDistance(objective ?? getSchoolObjective(school.code));
+    ensureGoalEditControl();
+    // Actualise aussi le flux de publications à chaque changement (création/édition/suppression)
+    // détecté par le temps réel sur la collection 'rides'.
+    refreshPosts();
   });
+}
+
+function ensureGoalEditControl() {
+  const goalEl = document.querySelector('#school-goal');
+  if (!goalEl) return;
+  let container = goalEl.parentElement;
+  if (!container) return;
+  let btn = container.querySelector('.goal-edit-button');
+  // Si l'on n'a pas pu déterminer les memberships, on déduit un droit de gestion
+  // via les permissions des dernières publications (owner ou admin école)
+  let derivedCan = false;
+  try {
+    const globalTeam = appwriteConfig.globalAdminTeamId;
+    const schoolTeam = (appwriteConfig.schoolAdminTeams ?? {})[school.code];
+    if (Array.isArray(lastRides) && lastRides.length) {
+      const has = lastRides.some((r) => Array.isArray(r.permissions) && r.permissions.some((p) => {
+        if (typeof p !== 'string') return false;
+        const pl = p.toLowerCase();
+        const gt = globalTeam ? String(globalTeam).toLowerCase() : '';
+        const st = schoolTeam ? String(schoolTeam).toLowerCase() : '';
+        return (
+          (gt && (pl.includes(`update("team:${gt}`) || pl.includes(`delete("team:${gt}`))) ||
+          (st && (pl.includes(`update("team:${st}`) || pl.includes(`delete("team:${st}`)))
+        );
+      }));
+      derivedCan = Boolean(has);
+    }
+  } catch {}
+
+  if (!canManage && !derivedCan) {
+    if (btn) btn.remove();
+    return;
+  }
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'link-button goal-edit-button';
+    btn.setAttribute('aria-label', "Modifier l'objectif");
+    btn.innerHTML = '<span aria-hidden="true">✏️</span>';
+    btn.addEventListener('click', async () => {
+      const currentText = goalEl.textContent || '';
+      const currentKm = parseFloat((currentText.replace(/[^0-9.,]/g, '').replace(',', '.')) || '0');
+      const input = window.prompt("Nouvel objectif (en km)", Number.isFinite(currentKm) ? String(currentKm) : '0');
+      if (input == null) return; // annulé
+      const value = parseFloat(String(input).replace(',', '.'));
+      if (!Number.isFinite(value) || value < 0) {
+        alert("Valeur invalide. Entrez un nombre positif.");
+        return;
+      }
+      try {
+        await setSchoolObjective({ schoolCode: school.code, objective: value });
+        // Mise à jour immédiate de l'affichage local (le temps que le temps réel propage)
+        goalEl.textContent = formatDistance(value);
+      } catch (error) {
+        console.error(error);
+        alert(error?.message || "Impossible de mettre à jour l'objectif.");
+      }
+    });
+    // Insère le bouton juste après la valeur
+    container.appendChild(btn);
+  }
 }
 
 async function refreshPosts(force = false) {
   try {
     postsGrid?.classList.add('loading');
     const rides = await fetchRecentRides(school.code, { force });
+    lastRides = rides;
     renderPosts(rides);
   } catch (error) {
     console.error(error);
     if (postsGrid) postsGrid.innerHTML = '<p class="empty-state">Impossible de charger les publications. Réessayez plus tard.</p>';
   } finally {
     postsGrid?.classList.remove('loading');
+  }
+}
+
+async function refreshStatsOnce() {
+  try {
+    const { totalDistance, ridesCount, objective } = await getSchoolTotals(school.code);
+    const totalEl = document.querySelector('#school-total');
+    const countEl = document.querySelector('#school-ride-count');
+    const goalEl = document.querySelector('#school-goal');
+    if (totalEl) totalEl.textContent = formatDistance(totalDistance);
+    if (countEl) countEl.textContent = ridesCount.toString();
+    if (goalEl) goalEl.textContent = formatDistance(objective ?? getSchoolObjective(school.code));
+    ensureGoalEditControl();
+  } catch (error) {
+    console.error('Impossible de rafraîchir les stats:', error);
   }
 }
 
@@ -249,19 +574,109 @@ function renderPosts(rides) {
   postsGrid.innerHTML = rides
     .map((ride) => renderRideCard(ride))
     .join('');
+
+  // Event delegation for edit/delete actions (attach once)
+  if (!postsGridHandlerAttached) {
+    postsGrid.addEventListener('click', async (event) => {
+    const delBtn = event.target.closest?.('[data-action="delete-ride"]');
+    if (delBtn) {
+      const rideId = delBtn.getAttribute('data-ride-id');
+      if (!rideId) return;
+      const ride = (lastRides || []).find((r) => r.id === rideId);
+      if (!canShowActionsForRide(ride ?? {})) {
+        alert("Vous n'avez pas les droits pour supprimer cette publication.");
+        return;
+      }
+      const confirmMsg = 'Supprimer cette publication ? Cette action est irréversible.';
+      if (!window.confirm(confirmMsg)) return;
+      try {
+        await deleteRide(rideId);
+        await refreshPosts(true);
+        await refreshStatsOnce();
+      } catch (error) {
+        console.error(error);
+        alert(error?.message || 'Suppression impossible.');
+      }
+      return;
+    }
+
+    const editBtn = event.target.closest?.('[data-action="edit-ride"]');
+    if (editBtn) {
+      const rideId = editBtn.getAttribute('data-ride-id');
+      const currentDistance = parseFloat(editBtn.getAttribute('data-distance') || '0');
+      const currentNotes = editBtn.getAttribute('data-notes') || '';
+      if (!rideId) return;
+      const ride = (lastRides || []).find((r) => r.id === rideId);
+      if (!canShowActionsForRide(ride ?? {})) {
+        alert("Vous n'avez pas les droits pour modifier cette publication.");
+        return;
+      }
+      const distanceInput = window.prompt('Nouvelle distance (km)', String(currentDistance));
+      if (distanceInput == null) return;
+      const newDistance = parseFloat(String(distanceInput).replace(',', '.'));
+      if (!Number.isFinite(newDistance) || newDistance <= 0) {
+        alert('Distance invalide.');
+        return;
+      }
+      const notesInput = window.prompt('Nouveau commentaire (optionnel)', currentNotes);
+      try {
+        await updateRide(rideId, { totalDistance: newDistance, notes: notesInput ?? '' });
+        await refreshPosts(true);
+        await refreshStatsOnce();
+      } catch (error) {
+        console.error(error);
+        alert(error?.message || 'Modification impossible.');
+      }
+    }
+    });
+    postsGridHandlerAttached = true;
+  }
+}
+
+function rideHasTeamPermission(ride, type, teamIdOrName) {
+  if (!Array.isArray(ride.permissions) || !teamIdOrName) return false;
+  const t = String(teamIdOrName).toLowerCase();
+  return ride.permissions.some((p) => typeof p === 'string' && p.toLowerCase().includes(`${type}("team:`) && p.toLowerCase().includes(`team:${t}`));
+}
+
+function rideHasUserPermission(ride, type, userId) {
+  if (!Array.isArray(ride.permissions) || !userId) return false;
+  const u = String(userId).toLowerCase();
+  return ride.permissions.some((p) => typeof p === 'string' && p.toLowerCase().includes(`${type}("user:`) && p.toLowerCase().includes(`user:${u}`));
+}
+
+function canShowActionsForRide(ride) {
+  if (canManage) return true;
+  if (!currentUser) return false;
+  const globalTeam = appwriteConfig.globalAdminTeamId;
+  const schoolTeam = (appwriteConfig.schoolAdminTeams ?? {})[school.code];
+  // Montre si le document a explicitement des permissions pour l'équipe propriétaire/admin
+  const canByGlobalTeam = rideHasTeamPermission(ride, 'update', globalTeam) || rideHasTeamPermission(ride, 'delete', globalTeam);
+  const canBySchoolTeam = rideHasTeamPermission(ride, 'update', schoolTeam) || rideHasTeamPermission(ride, 'delete', schoolTeam);
+  return Boolean(canByGlobalTeam || canBySchoolTeam);
 }
 
 function renderRideCard(ride) {
+  const authorLabel = getRideAuthorLabel(ride);
   const proofsHtml = ride.proofs
     .map(
       (proof) => `
         <figure class="ride-proof">
           <img src="${proof.downloadUrl}" alt="Preuve de trajet pour ${ride.schoolName}" loading="lazy" />
-          <figcaption>${formatDistance(proof.distance)}</figcaption>
+          <figcaption>${formatDistance(ride.totalDistance)}</figcaption>
         </figure>
       `
     )
     .join('');
+
+  const controls = canShowActionsForRide(ride)
+    ? `
+      <div class="ride-actions">
+        <button class="link-button" type="button" data-action="edit-ride" data-ride-id="${ride.id}" data-distance="${ride.totalDistance}" data-notes="${ride.notes?.replace(/"/g, '&quot;') ?? ''}">Modifier</button>
+        <button class="link-button" type="button" data-action="delete-ride" data-ride-id="${ride.id}">Supprimer</button>
+      </div>
+    `
+    : '';
 
   return `
     <article class="ride-card">
@@ -269,9 +684,22 @@ function renderRideCard(ride) {
         <h3>${ride.schoolName}</h3>
         <span>${formatDistance(ride.totalDistance)}</span>
       </header>
-      <time datetime="${ride.createdAt.toISOString()}">${formatDateTime(ride.createdAt)}</time>
+      <div class="ride-meta">
+        <span class="ride-author">Publié par ${authorLabel}</span>
+        <time datetime="${ride.createdAt.toISOString()}">${formatDateTime(ride.createdAt)}</time>
+      </div>
       ${ride.notes ? `<p class="ride-notes">${ride.notes}</p>` : ''}
       <div class="ride-proofs">${proofsHtml}</div>
+      ${controls}
     </article>
   `;
+}
+
+function getRideAuthorLabel(ride) {
+  if (!ride) return 'Participant';
+  const name = ride.authorName?.trim();
+  if (name) return name;
+  const email = ride.authorEmail?.trim();
+  if (email) return email;
+  return 'Participant';
 }

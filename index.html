@@ -42,6 +42,10 @@
             <li data-static="true"><a href="school.html?code=tours">Polytech Tours</a></li>
           </ul>
         </nav>
+        <div class="auth-controls">
+          <span id="auth-user" class="auth-user" hidden></span>
+          <button id="auth-button" class="secondary-button" type="button">Se connecter</button>
+        </div>
       </div>
     </header>
 
@@ -140,6 +144,32 @@
         <p>&copy; <span id="current-year"></span> Polytech Roule pour le Caritatif. Projet étudiant au profit des Restos du Cœur.</p>
       </div>
     </footer>
+
+    <div id="auth-modal" class="auth-modal" hidden aria-hidden="true">
+      <div class="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+        <button type="button" class="auth-modal__close" data-auth-close aria-label="Fermer">×</button>
+        <h2 id="auth-modal-title">Connexion</h2>
+        <form id="auth-form" novalidate>
+          <div class="form-group">
+            <label for="auth-email">Email</label>
+            <input id="auth-email" type="email" name="email" required autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="auth-password">Mot de passe</label>
+            <input id="auth-password" type="password" name="password" required minlength="8" autocomplete="current-password" />
+          </div>
+          <div class="form-group" id="auth-name-group" hidden>
+            <label for="auth-name">Nom affiché (optionnel)</label>
+            <input id="auth-name" type="text" name="name" autocomplete="name" />
+          </div>
+          <div class="form-actions auth-modal__actions">
+            <button type="submit" class="primary-button" data-auth-submit>Se connecter</button>
+            <button type="button" class="link-button" id="auth-toggle-mode">Créer un compte</button>
+          </div>
+          <p class="form-feedback" id="auth-feedback" role="alert" hidden></p>
+        </form>
+      </div>
+    </div>
 
     <script type="module" src="assets/js/app.js"></script>
   </body>

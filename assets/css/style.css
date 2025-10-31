@@ -79,6 +79,10 @@ body.header-hidden {
   padding-top: 0;
 }
 
+body.auth-modal-open {
+  overflow: hidden;
+}
+
 .noscript-warning {
   margin: 0;
   padding: 1rem;
@@ -130,6 +134,77 @@ body.header-hidden {
   position: relative;
 }
 
+.auth-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.auth-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.auth-modal.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.auth-modal[hidden] {
+  display: none;
+}
+
+.auth-modal__dialog {
+  position: relative;
+  width: min(420px, 100%);
+  background: var(--color-surface);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+}
+
+.auth-modal__close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.auth-modal__close:hover,
+.auth-modal__close:focus-visible {
+  color: var(--color-primary);
+}
+
+.auth-modal__actions {
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.auth-modal__actions .link-button {
+  padding: 0;
+}
+
+.auth-user {
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  white-space: nowrap;
+}
+
 .nav-toggle {
   display: inline-flex;
   align-items: center;
@@ -169,6 +244,12 @@ body.header-hidden {
   max-height: 80vh;
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Allow scrolling the dropdown list when there are many schools */
+.nav-links.open {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .nav-links a {
@@ -619,9 +700,23 @@ textarea {
   gap: 1rem;
 }
 
-.ride-card time {
+.ride-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   color: var(--color-muted);
   font-size: 0.9rem;
+}
+
+.ride-author {
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+.ride-card time {
+  color: inherit;
+  font-size: inherit;
 }
 
 .ride-card .ride-proofs {
@@ -653,6 +748,20 @@ textarea {
   background: var(--color-surface);
   border-radius: var(--border-radius);
   box-shadow: var(--shadow);
+}
+
+/* Small pencil button next to the goal value */
+.goal-edit-button {
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.ride-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
 }
 
 .site-footer {
@@ -698,6 +807,11 @@ textarea {
     align-items: center;
     text-align: center;
     gap: 1rem;
+  }
+
+  .auth-controls {
+    width: 100%;
+    justify-content: center;
   }
 
   .stats-cards,

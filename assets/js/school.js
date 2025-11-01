@@ -14,7 +14,6 @@ import {
   onAuthStateChange,
   loadCurrentUser,
   loginWithEmailPassword,
-  registerWithEmailPassword,
   logout,
   getUserDisplayName,
   getSchoolObjective,
@@ -102,9 +101,7 @@ function setupAuthControls() {
   const form = modal?.querySelector('#auth-form');
   const emailInput = modal?.querySelector('#auth-email');
   const passwordInput = modal?.querySelector('#auth-password');
-  const nameGroup = modal?.querySelector('#auth-name-group');
-  const nameInput = modal?.querySelector('#auth-name');
-  const toggleModeButton = modal?.querySelector('#auth-toggle-mode');
+  const passwordToggle = modal?.querySelector('.password-toggle');
   const feedbackEl = modal?.querySelector('#auth-feedback');
   const titleEl = modal?.querySelector('#auth-modal-title');
   const submitButton = modal?.querySelector('[data-auth-submit]');
@@ -114,7 +111,6 @@ function setupAuthControls() {
     return;
   }
 
-  let mode = 'login';
   let isSubmitting = false;
 
   const clearFeedback = () => {
@@ -137,12 +133,8 @@ function setupAuthControls() {
       modal.hidden = true;
       form.reset();
       clearFeedback();
-      mode = 'login';
-      nameGroup?.setAttribute('hidden', '');
       titleEl.textContent = 'Connexion';
       submitButton.textContent = 'Se connecter';
-      toggleModeButton?.setAttribute('data-mode', 'login');
-      toggleModeButton && (toggleModeButton.textContent = 'Créer un compte');
       passwordInput.setAttribute('autocomplete', 'current-password');
     }, 200);
   };
@@ -158,25 +150,15 @@ function setupAuthControls() {
     });
   };
 
-  const setMode = (nextMode) => {
-    mode = nextMode;
-    if (mode === 'signup') {
-      titleEl.textContent = 'Créer un compte';
-      submitButton.textContent = "S'inscrire";
-      toggleModeButton?.setAttribute('data-mode', 'signup');
-      toggleModeButton && (toggleModeButton.textContent = 'Déjà un compte ? Se connecter');
-      nameGroup?.removeAttribute('hidden');
-      passwordInput.setAttribute('autocomplete', 'new-password');
-    } else {
-      titleEl.textContent = 'Connexion';
-      submitButton.textContent = 'Se connecter';
-      toggleModeButton?.setAttribute('data-mode', 'login');
-      toggleModeButton && (toggleModeButton.textContent = 'Créer un compte');
-      nameGroup?.setAttribute('hidden', '');
-      passwordInput.setAttribute('autocomplete', 'current-password');
-    }
-    clearFeedback();
-  };
+  // Toggle password visibility
+  if (passwordToggle && passwordInput) {
+    passwordToggle.addEventListener('click', () => {
+      const isText = passwordInput.type === 'text';
+      passwordInput.type = isText ? 'password' : 'text';
+      passwordToggle.setAttribute('aria-pressed', String(!isText));
+      passwordToggle.textContent = isText ? '👁' : '🙈';
+    });
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -186,25 +168,18 @@ function setupAuthControls() {
 
     const email = emailInput.value.trim();
     const password = passwordInput.value;
-    const name = nameInput?.value.trim();
 
     submitButton.disabled = true;
-    toggleModeButton && (toggleModeButton.disabled = true);
     isSubmitting = true;
 
     try {
-      if (mode === 'signup') {
-        await registerWithEmailPassword({ email, password, name });
-      } else {
-        await loginWithEmailPassword({ email, password });
-      }
+      await loginWithEmailPassword({ email, password });
     } catch (error) {
       console.error('Erreur lors de la gestion de la connexion Appwrite :', error);
       showFeedback(error?.message ?? 'Une erreur est survenue.');
       return;
     } finally {
       submitButton.disabled = false;
-      toggleModeButton && (toggleModeButton.disabled = false);
       isSubmitting = false;
     }
   };
@@ -272,10 +247,6 @@ function setupAuthControls() {
   });
 
   form.addEventListener('submit', handleSubmit);
-
-  toggleModeButton?.addEventListener('click', () => {
-    setMode(mode === 'login' ? 'signup' : 'login');
-  });
 
   closeButtons.forEach((button) => {
     button.addEventListener('click', () => closeModal());

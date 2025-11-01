@@ -4,12 +4,14 @@ Site web événementiel pour le défi solidaire « Polytech Roule pour le Carit
 
 ## 🌟 Fonctionnalités principales
 
-- **Classement en direct** des écoles, mis à jour automatiquement via Appwrite Database.
-- **Tableaux de bord dynamiques** : total global, nombre de trajets, progression par rapport aux objectifs.
-- **Top 3 des trajets** de la journée et de la semaine.
-- **Page dédiée par école** avec formulaire de déclaration de trajets, upload d’images vers Appwrite Storage et fil des publications récentes.
-- **Design responsive** inspiré de la charte Polytech, header fixe, couleurs vives et typographie Poppins.
-- **Navigation mobile optimisée** avec bouton « Menu » centré, header qui se masque lors du défilement et bouton « retour en haut » accessible.
+- Classement en direct des écoles (realtime) et tableaux de bord: total global, nombre de trajets, progression vs. objectif.
+- Page dédiée par école avec formulaire de trajets, téléversement d’images (preuves) vers Appwrite Storage et fil des publications.
+- Authentification email/mot de passe (messages en français) + publications anonymes possibles avec Nom/Prénom/Spécialité.
+- Modération basée sur les permissions: propriétaire(s) et administrateurs par école peuvent modifier/supprimer.
+- Édition rapide de l’objectif école (icône crayon), mise à jour immédiate des totaux et du classement.
+- Design responsive (mobile-first), navigation mobile scrollable, header auto-masqué et bouton « retour en haut ».
+
+> Remarque: aucune donnée sensible (IDs de projet, team IDs, etc.) n’apparaît dans ce README. Renseignez ces valeurs dans `assets/js/appwrite-config.js` (fichier local à vous, non documenté ici).
 
 ## 🗂️ Structure du projet
 
@@ -25,7 +27,7 @@ Site web événementiel pour le défi solidaire « Polytech Roule pour le Carit
 │   └── js/
 │       ├── app.js           # Logique de la page d'accueil
 │       ├── core.js          # Helpers, intégration Appwrite, formatage
-│       ├── appwrite-config.js # À personnaliser avec vos identifiants Appwrite
+│       ├── appwrite-config.js # À personnaliser localement avec vos identifiants Appwrite
 │       └── school.js        # Logique des pages école
 ├── package.json              # Scripts de développement (Vite)
 └── README.md
@@ -44,7 +46,15 @@ npm install
 npm run dev
 ```
 
-Le serveur Vite ouvre l’application sur [http://localhost:5173](http://localhost:5173). Les fichiers HTML restent accessibles en fichiers statiques si requis (double-cliquez sur `index.html`).
+Le serveur Vite ouvre l’application sur [http://localhost:5173](http://localhost:5173).
+
+### Proxy de développement (Appwrite Cloud)
+
+Ce projet inclut une configuration de proxy (Vite) pour appeler l’API Appwrite Cloud via `/v1` en local. Le proxy réécrit les cookies afin de permettre les sessions sur `http://localhost`.
+
+- Le proxy est défini dans `vite.config.js` (route `/v1`).
+- Côté Appwrite, autorisez vos origines locales (localhost/127.0.0.1) dans les CORS du projet.
+- Ce proxy est uniquement pour le développement local. En production, servez le site statiquement et appelez directement l’API Appwrite sur `https://cloud.appwrite.io/v1`.
 
 Pour un build statique optimisé :
 
@@ -53,36 +63,29 @@ npm run build
 npm run preview
 ```
 
-## 🔌 Configuration Appwrite
+## 🔌 Configuration Appwrite (sans secret)
 
-1. Installez Appwrite (self-hosté ou Appwrite Cloud) puis créez un **project** dédié.
-2. Dans la console Appwrite :
-    - Créez une **base de données** contenant une collection `rides` avec les attributs suivants :
-      - `schoolCode` (**string**, obligatoire, max 32)
-      - `schoolName` (**string**, obligatoire, max 128)
-      - `totalDistance` (**double**, obligatoire)
-      - `proofs` (**string**, optionnel, max 2048)
-      - `notes` (**string**, optionnel, max 512)
-      - `createdAt` (**datetime**, obligatoire)
-   - Ajoutez les index nécessaires :
-     - **Index `bySchoolCode`** – type *Key*, attribut `schoolCode`, tri Ascendant, activer la pagination (cursor). Sert aux filtres par école.
-     - **Index `byCreatedAt`** – type *Key*, attribut `createdAt`, tri Descendant, activer la pagination. Sert aux tris par date (classement du jour/semaine).
-     - Dans l’onglet **Permissions** de la collection, autorisez les actions suivantes (mode prototype sans authentification) :
-       - `Any` sur **Create** pour permettre la création de documents anonymes.
-       - `Any` sur **Read** pour exposer le classement et les stats en lecture publique.
-       - Laissez **Update/Delete** désactivés si les trajets n’ont pas à être modifiés par le public.
-   - Créez un **bucket Storage** `proofs` avec les réglages suivants :
-     - Nom et ID : `proofs` (laisser Appwrite générer l’ID puis le recopier dans `assets/js/appwrite-config.js`).
-     - Activez **File Security** pour que les permissions par fichier définies dans le code soient appliquées.
-     - Upload activé pour les navigateurs (Allow file upload / Create permission).
-     - Taille max par fichier : 10 Mo (adapté aux captures d’écran).
-     - Extensions autorisées : `png`, `jpg`, `jpeg`, `webp`.
-     - Permissions (prototype) :
-       - Lecture : `role:all`
-       - Écriture : `role:all` *(ou restreindre à `role:users` si vous forcez la connexion)*
-     - Activez la mise à disposition **File previews** pour permettre l’affichage direct dans le site.
-3. Récupérez les identifiants (endpoint, projectId, databaseId, collectionId, bucketId) et remplissez `assets/js/appwrite-config.js`.
-4. Configurez les permissions (`role:all` en lecture/écriture pour un prototype, à restreindre ensuite) et ajustez les CORS depuis le dashboard Appwrite.
+1. Créez un projet Appwrite (self-hosté ou Cloud).
+2. Base de données → Collection `rides` (trajets) avec attributs:
+   - `schoolCode` (string, required, ≤32)
+   - `schoolName` (string, required, ≤128)
+   - `totalDistance` (double, required)
+   - `proofs` (string, optional, ≤2048) — JSON sérialisé.
+   - `notes` (string, optional, ≤512)
+   - `createdAt` (datetime, required)
+   Index:
+   - `bySchoolCode` (Key, `schoolCode`, ASC)
+   - `byCreatedAt` (Key, `createdAt`, DESC)
+   Permissions (prototype/anon):
+   - Create: `role:all`
+   - Read: `role:all`
+   - Update/Delete: donnez ces droits aux équipes d’administrateurs concernées (voir « Modération » ci‑dessous).
+3. Storage → Bucket `proofs` (images de preuves):
+   - Extensions: png, jpg, jpeg, webp — Taille max 10 Mo — File Security: ON
+   - Permissions (prototype): Create/Read `role:all` (à restreindre si vous forcez l’authentification)
+   - Activez les « File previews »
+4. Renseignez vos identifiants dans `assets/js/appwrite-config.js` (endpoint, projectId, databaseId, ridesCollectionId, proofsBucketId, schoolSettingsCollectionId). Utilisez des placeholders en commit public; gardez vos valeurs réelles en privé.
+5. CORS: autorisez vos origines (localhost pour dev, domaine(s) de prod) depuis le dashboard Appwrite. Aucun `cors.json` n’est utilisé dans ce repo.
 
 ## 🗃️ Modèle de données
 
@@ -94,11 +97,24 @@ npm run preview
   - `notes` (string, max 512) – commentaire libre.
   - `createdAt` (datetime) – horodatage généré côté client (`new Date().toISOString()`).
 
+Chaque preuve porte sa distance propre; l’interface additionne ces distances pour afficher le total du trajet et montre la distance de chaque preuve sous l’image correspondante.
+
 > 💡 L’UI actuelle d’Appwrite ne propose pas encore de type « JSON ». Créez donc `proofs` en **String** (texte long), fixez la taille maximale à **2048 caractères** et laissez le champ optionnel. L’application sérialise automatiquement les preuves en JSON lors de l’écriture et les retransforme en tableau lors de la lecture.
 
 > ⏱️ Pour `createdAt`, sélectionnez le type **Datetime** dans Appwrite. Le format attendu est ISO 8601 (RFC 3339) ; la valeur générée par `new Date().toISOString()` est parfaitement compatible.
 
 Les classements sont calculés côté client à partir de cette collection Appwrite.
+
+## 🔒 Authentification & publication anonyme
+
+- Auth supportée: email/mot de passe (UI en français). Pas d’OAuth Google dans ce projet.
+- Publications anonymes: si l’utilisateur n’est pas connecté, le formulaire exige Nom, Prénom et Spécialité; ces valeurs sont stockées avec le trajet.
+
+## 🛡️ Modération (équipes)
+
+- Créez une équipe « propriétaire » (ou utilisez la vôtre) et des équipes « admins » par école côté Appwrite.
+- Donnez les droits Update/Delete sur la collection `rides` aux équipes concernées (global + par école).
+- Dans `assets/js/appwrite-config.js`, mappez les codes écoles → IDs de team (`schoolAdminTeams`). Vous pouvez aussi définir une liste d’emails propriétaires `ownerEmails` pour un fallback côté UI.
 
 ## 🧪 Tests & qualité
 
@@ -111,10 +127,15 @@ Les classements sont calculés côté client à partir de cette collection Appwr
 - Les couleurs principales se trouvent dans `:root` de `assets/css/style.css`.
 - Pour ajouter de nouvelles écoles, complétez simplement le tableau `schools` dans `core.js`.
 
+## 🔁 Realtime & rafraîchissements
+
+- Le classement, les totaux par école et le flux de publications se mettent à jour en temps réel.
+- Après une action utilisateur (publication, modification, suppression), le site force un rafraîchissement local pour éviter d’attendre l’événement realtime.
+
 ## 📦 Déploiement
 
 - Le projet peut être déployé sur Appwrite Cloud (hébergement statique) ou tout autre hébergeur de fichiers statiques (Firebase Hosting, GitHub Pages, Netlify, Vercel...).
-- N’oubliez pas de protéger vos clefs Appwrite (restreindre les domaines autorisés et limiter les permissions).
+- N’oubliez pas de protéger vos clefs Appwrite: restreignez les domaines autorisés, limitez les permissions en prod et évitez de committer des identifiants sensibles.
 
 ## 🤝 Contributions
 

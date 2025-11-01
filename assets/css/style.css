@@ -544,6 +544,36 @@ main {
   overflow-wrap: anywhere;
 }
 
+/* Password field with eye toggle */
+.password-field {
+  position: relative;
+  display: grid;
+}
+
+.password-field > input[type='password'],
+.password-field > input[type='text'] {
+  padding-right: 2.75rem; /* room for the eye button */
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid rgba(29, 126, 210, 0.35);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 input,
 textarea,
 select {

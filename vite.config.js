@@ -8,6 +8,13 @@ export default defineConfig({
     // Build into "docs" so GitHub Pages can serve from the main branch
     outDir: 'docs',
     emptyOutDir: true,
+    rollupOptions: {
+      // Build both pages so production never serves raw source HTML
+      input: {
+        index: 'index.html',
+        school: 'school.html',
+      },
+    },
   },
   server: {
     proxy: {

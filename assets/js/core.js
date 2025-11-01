@@ -154,7 +154,33 @@ export async function loginWithEmailPassword({ email, password } = {}) {
   }
 }
 
-// Inscription (email/mot de passe) retirée de l'UI – fonction supprimée car non utilisée
+export async function registerWithEmailPassword({ email, password, name } = {}) {
+  const normalizedEmail = (email ?? '').toString().trim().toLowerCase();
+  const normalizedPassword = (password ?? '').toString();
+  const normalizedName = (name ?? '').toString().trim();
+
+  if (!normalizedEmail) {
+    throw new Error("L'email est requis pour créer un compte.");
+  }
+
+  if (!normalizedPassword || normalizedPassword.length < 8) {
+    throw new Error('Le mot de passe doit contenir au moins 8 caractères.');
+  }
+
+  try {
+    await account().create({
+      userId: ID.unique(),
+      email: normalizedEmail,
+      password: normalizedPassword,
+      name: normalizedName || undefined,
+    });
+  } catch (error) {
+    throw toAppwriteError(error, "Impossible de créer le compte. L'email est peut-être déjà utilisé.");
+  }
+
+  await loginWithEmailPassword({ email: normalizedEmail, password: normalizedPassword });
+  return getCurrentUser();
+}
 
 export async function logout() {
   try {
@@ -1128,14 +1154,6 @@ export function setupHeaderAutoHide({ breakpoint = 900, threshold = 12 } = {}) {
   }
 
   function handleScroll() {
-    // Si le menu des écoles est ouvert, on désactive l'auto-hide du header
-    // pour permettre le défilement de la liste sans fermer le menu.
-    if (navLinks && navLinks.classList.contains('open')) {
-      showHeader();
-      lastScrollY = window.scrollY;
-      return;
-    }
-
     const currentY = window.scrollY;
     const delta = currentY - lastScrollY;
 

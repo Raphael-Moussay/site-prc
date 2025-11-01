@@ -83,6 +83,11 @@ body.auth-modal-open {
   overflow: hidden;
 }
 
+/* Lock background scroll when the navigation menu is open */
+body.menu-open {
+  overflow: hidden;
+}
+
 .noscript-warning {
   margin: 0;
   padding: 1rem;
@@ -842,6 +847,12 @@ textarea {
 }
 
 @media (max-width: 720px) {
+  /* Sur mobile, le header n'est plus sticky: il défile avec la page */
+  .site-header {
+    position: static;
+    top: auto;
+  }
+
   .main-nav {
     width: 100%;
     display: flex;
@@ -857,6 +868,21 @@ textarea {
     right: auto;
     width: min(100%, 360px);
     transform: translateX(-50%);
+  }
+
+  /* When open on small screens, present the menu as a fixed sheet to guarantee
+     scrollability even on very short viewports. The top offset is measured in JS
+     and injected into --nav-open-top for perfect alignment below the toggle. */
+  .nav-links.open {
+    position: fixed;
+    /* Cap the top offset so the panel always keeps enough height on tiny screens */
+    top: clamp(8px, var(--nav-open-top, 88px), 25vh);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    max-height: none; /* height controlled by top/bottom */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    z-index: 1100; /* above header */
   }
 }
 

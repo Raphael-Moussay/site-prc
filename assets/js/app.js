@@ -62,18 +62,57 @@ function setupNavigationToggle() {
   const navLinks = document.querySelector('#nav-links');
   if (!toggle || !navLinks) return;
 
+  const authButton = document.querySelector('#auth-button');
+
+  const closeMenu = () => {
+    toggle.setAttribute('aria-expanded', 'false');
+    navLinks.classList.remove('open');
+    document.body.classList.remove('menu-open');
+    document.documentElement.style.removeProperty('--nav-open-top');
+  };
+
   toggle.addEventListener('click', () => {
     const expanded = toggle.getAttribute('aria-expanded') === 'true';
     toggle.setAttribute('aria-expanded', (!expanded).toString());
-    navLinks.classList.toggle('open', !expanded);
+    const willOpen = !expanded;
+    navLinks.classList.toggle('open', willOpen);
+    document.body.classList.toggle('menu-open', willOpen);
+
+    // Measure top offset for mobile fixed sheet
+    if (willOpen) {
+      const rect = toggle.getBoundingClientRect();
+      const top = Math.round(rect.bottom + 8);
+      document.documentElement.style.setProperty('--nav-open-top', `${top}px`);
+    } else {
+      document.documentElement.style.removeProperty('--nav-open-top');
+    }
   });
 
   navLinks.querySelectorAll('a').forEach((link) =>
     link.addEventListener('click', () => {
-      toggle.setAttribute('aria-expanded', 'false');
-      navLinks.classList.remove('open');
+      closeMenu();
     })
   );
+
+  // Outside click closes menu
+  document.addEventListener('click', (event) => {
+    if (!navLinks.classList.contains('open')) return;
+    const target = event.target;
+    if (toggle.contains(target) || navLinks.contains(target)) return;
+    closeMenu();
+  });
+
+  // Clicking auth button closes menu
+  if (authButton) {
+    authButton.addEventListener('click', () => closeMenu());
+  }
+
+  // Escape closes menu
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && navLinks.classList.contains('open')) {
+      closeMenu();
+    }
+  });
 }
 
 function setupAuthControls() {

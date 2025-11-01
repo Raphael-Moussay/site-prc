@@ -1130,6 +1130,8 @@ export function setupHeaderAutoHide({ breakpoint = 900, threshold = 12 } = {}) {
   const navLinks = document.querySelector('.nav-links');
   const toggle = document.querySelector('.nav-toggle');
   const mediaQuery = window.matchMedia(`(max-width: ${breakpoint}px)`);
+  // Dedicated mobile query to disable auto-hide on true mobile
+  const mobileQuery = window.matchMedia('(max-width: 720px)');
 
   let lastScrollY = window.scrollY;
   let hidden = false;
@@ -1154,8 +1156,23 @@ export function setupHeaderAutoHide({ breakpoint = 900, threshold = 12 } = {}) {
   }
 
   function handleScroll() {
+    // Si le menu des écoles est ouvert, conserver le header visible
+    const navOpen = navLinks && navLinks.classList.contains('open');
+    if (navOpen) {
+      showHeader();
+      lastScrollY = window.scrollY;
+      return;
+    }
+
     const currentY = window.scrollY;
     const delta = currentY - lastScrollY;
+
+    // Sur mobile, on désactive l'auto-hide: le header se comporte comme le reste de la page
+    if (mobileQuery.matches) {
+      showHeader();
+      lastScrollY = currentY;
+      return;
+    }
 
     if (!mediaQuery.matches) {
       showHeader();
@@ -1187,7 +1204,12 @@ export function setupHeaderAutoHide({ breakpoint = 900, threshold = 12 } = {}) {
   }
 
   const onMediaChange = () => {
+    // Toujours afficher le header quand on sort du mode petit écran
     if (!mediaQuery.matches) {
+      showHeader();
+    }
+    // Et sur mobile (<=720px), on force l'affichage et on ne cache jamais
+    if (mobileQuery.matches) {
       showHeader();
     }
   };
@@ -1195,7 +1217,7 @@ export function setupHeaderAutoHide({ breakpoint = 900, threshold = 12 } = {}) {
   window.addEventListener('scroll', requestTick, { passive: true });
   window.addEventListener('resize', () => {
     lastScrollY = window.scrollY;
-    if (!mediaQuery.matches) {
+    if (!mediaQuery.matches || mobileQuery.matches) {
       showHeader();
     }
   });
@@ -1204,6 +1226,11 @@ export function setupHeaderAutoHide({ breakpoint = 900, threshold = 12 } = {}) {
     mediaQuery.addEventListener('change', onMediaChange);
   } else if (mediaQuery.addListener) {
     mediaQuery.addListener(onMediaChange);
+  }
+
+  // Initial state: ensure header is visible on mobile
+  if (mobileQuery.matches) {
+    showHeader();
   }
 }
 

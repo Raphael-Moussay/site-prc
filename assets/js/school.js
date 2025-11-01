@@ -79,19 +79,53 @@ function populateNavigation() {
 function setupNavigationToggle() {
   const toggle = document.querySelector('.nav-toggle');
   if (!toggle || !navLinks) return;
+  const authButton = document.querySelector('#auth-button');
+
+  const closeMenu = () => {
+    toggle.setAttribute('aria-expanded', 'false');
+    navLinks.classList.remove('open');
+    document.body.classList.remove('menu-open');
+    document.documentElement.style.removeProperty('--nav-open-top');
+  };
 
   toggle.addEventListener('click', () => {
     const expanded = toggle.getAttribute('aria-expanded') === 'true';
     toggle.setAttribute('aria-expanded', (!expanded).toString());
-    navLinks.classList.toggle('open', !expanded);
+    const willOpen = !expanded;
+    navLinks.classList.toggle('open', willOpen);
+    document.body.classList.toggle('menu-open', willOpen);
+
+    if (willOpen) {
+      const rect = toggle.getBoundingClientRect();
+      const top = Math.round(rect.bottom + 8);
+      document.documentElement.style.setProperty('--nav-open-top', `${top}px`);
+    } else {
+      document.documentElement.style.removeProperty('--nav-open-top');
+    }
   });
 
   navLinks.querySelectorAll('a').forEach((link) =>
     link.addEventListener('click', () => {
-      toggle.setAttribute('aria-expanded', 'false');
-      navLinks.classList.remove('open');
+      closeMenu();
     })
   );
+
+  document.addEventListener('click', (event) => {
+    if (!navLinks.classList.contains('open')) return;
+    const target = event.target;
+    if (toggle.contains(target) || navLinks.contains(target)) return;
+    closeMenu();
+  });
+
+  if (authButton) {
+    authButton.addEventListener('click', () => closeMenu());
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && navLinks.classList.contains('open')) {
+      closeMenu();
+    }
+  });
 }
 
 function setupAuthControls() {
@@ -582,21 +616,64 @@ function renderPosts(rides) {
         alert("Vous n'avez pas les droits pour modifier cette publication.");
         return;
       }
-      const distanceInput = window.prompt('Nouvelle distance (km)', String(currentDistance));
-      if (distanceInput == null) return;
-      const newDistance = parseFloat(String(distanceInput).replace(',', '.'));
-      if (!Number.isFinite(newDistance) || newDistance <= 0) {
-        alert('Distance invalide.');
-        return;
-      }
-      const notesInput = window.prompt('Nouveau commentaire (optionnel)', currentNotes);
-      try {
-        await updateRide(rideId, { totalDistance: newDistance, notes: notesInput ?? '' });
-        await refreshPosts(true);
-        await refreshStatsOnce();
-      } catch (error) {
-        console.error(error);
-        alert(error?.message || 'Modification impossible.');
+      // Édition par trajet (par image). Si des proofs existent, on demande un kilométrage pour chacun,
+      // et on recalcule le total comme la somme. Sinon, on garde le comportement ancien (total unique).
+      const proofsArray = Array.isArray(ride?.proofs)
+        ? ride.proofs
+        : (() => { try { return JSON.parse(ride?.proofs || '[]'); } catch { return []; } })();
+
+      if (Array.isArray(proofsArray) && proofsArray.length > 0) {
+        const updatedProofs = [];
+        for (let i = 0; i < proofsArray.length; i++) {
+          const proof = proofsArray[i] || {};
+          const current = Number(proof.distance) || 0;
+          const input = window.prompt(`Distance du trajet ${i + 1} (km)`, String(current));
+          if (input == null) return; // annulation = on ne modifie rien
+          const value = parseFloat(String(input).replace(',', '.'));
+          if (!Number.isFinite(value) || value <= 0) {
+            alert('Distance invalide.');
+            return;
+          }
+          updatedProofs.push({
+            storagePath: proof.storagePath,
+            fileId: proof.fileId,
+            downloadUrl: proof.downloadUrl,
+            distance: value,
+          });
+        }
+
+        const sum = updatedProofs.reduce((acc, p) => acc + (Number(p.distance) || 0), 0);
+        const notesInput = window.prompt('Nouveau commentaire (optionnel)', currentNotes);
+        try {
+          await updateRide(rideId, {
+            proofs: JSON.stringify(updatedProofs),
+            totalDistance: sum,
+            notes: notesInput ?? '',
+          });
+          await refreshPosts(true);
+          await refreshStatsOnce();
+        } catch (error) {
+          console.error(error);
+          alert(error?.message || 'Modification impossible.');
+        }
+      } else {
+        // Fallback: aucun proof => on édite le total comme avant
+        const distanceInput = window.prompt('Nouvelle distance (km)', String(currentDistance));
+        if (distanceInput == null) return;
+        const newDistance = parseFloat(String(distanceInput).replace(',', '.'));
+        if (!Number.isFinite(newDistance) || newDistance <= 0) {
+          alert('Distance invalide.');
+          return;
+        }
+        const notesInput = window.prompt('Nouveau commentaire (optionnel)', currentNotes);
+        try {
+          await updateRide(rideId, { totalDistance: newDistance, notes: notesInput ?? '' });
+          await refreshPosts(true);
+          await refreshStatsOnce();
+        } catch (error) {
+          console.error(error);
+          alert(error?.message || 'Modification impossible.');
+        }
       }
     }
     });

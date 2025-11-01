@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Polytech Roule pour le Caritatif</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
+    <link rel="icon" href="/site-prc/assets/Logo%20PRC-DIyUfuTd.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/site-prc/assets/Logo%20PRC-DIyUfuTd.png" />
+    <script type="module" crossorigin src="/site-prc/assets/index-Dks_7wXC.js"></script>
+    <link rel="stylesheet" crossorigin href="/site-prc/assets/index-DwZIM1ft.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-content">
+        <div class="brand">
+          <img src="/site-prc/assets/Logo%20PRC-DIyUfuTd.png" alt="Logo Polytech Roule pour le Caritatif" class="brand-logo" />
+          <div>
+            <h1>Polytech Roule pour le Caritatif</h1>
+            <p>16 écoles, un défi solidaire pour les Restos du Cœur</p>
+          </div>
+          <img src="/site-prc/assets/Logo_RDC-Zbtxmm6e.png" alt="Logo Restos du Cœur" class="brand-logo" />
+        </div>
+        <nav class="main-nav" aria-label="Navigation principale">
+          <button class="nav-toggle" aria-expanded="false" aria-controls="nav-links">Menu</button>
+          <ul id="nav-links" class="nav-links">
+            <li data-static="true"><a href="index.html" class="active">Accueil</a></li>
+            <li data-static="true"><a href="school.html?code=angers">Polytech Angers</a></li>
+            <li data-static="true"><a href="school.html?code=annecy">Polytech Annecy-Chambéry</a></li>
+            <li data-static="true"><a href="school.html?code=clermont">Polytech Clermont-Ferrand</a></li>
+            <li data-static="true"><a href="school.html?code=dijon">Polytech Dijon</a></li>
+            <li data-static="true"><a href="school.html?code=grenoble">Polytech Grenoble</a></li>
+            <li data-static="true"><a href="school.html?code=lille">Polytech Lille</a></li>
+            <li data-static="true"><a href="school.html?code=lyon">Polytech Lyon</a></li>
+            <li data-static="true"><a href="school.html?code=marseille">Polytech Marseille</a></li>
+            <li data-static="true"><a href="school.html?code=montpellier">Polytech Montpellier</a></li>
+            <li data-static="true"><a href="school.html?code=nancy">Polytech Nancy</a></li>
+            <li data-static="true"><a href="school.html?code=nantes">Polytech Nantes</a></li>
+            <li data-static="true"><a href="school.html?code=nice">Polytech Nice Sophia</a></li>
+            <li data-static="true"><a href="school.html?code=orleans">Polytech Orléans</a></li>
+            <li data-static="true"><a href="school.html?code=paris">Polytech Paris-Saclay</a></li>
+            <li data-static="true"><a href="school.html?code=sorbonne">Polytech Sorbonne</a></li>
+            <li data-static="true"><a href="school.html?code=tours">Polytech Tours</a></li>
+          </ul>
+        </nav>
+        <div class="auth-controls">
+          <span id="auth-user" class="auth-user" hidden></span>
+          <button id="auth-button" class="secondary-button" type="button">Se connecter</button>
+        </div>
+      </div>
+    </header>
+
+    <noscript>
+      <div class="noscript-warning">
+        Pour profiter du classement en direct, activez JavaScript dans votre navigateur.
+      </div>
+    </noscript>
+
+    <main class="container">
+      <section class="hero">
+        <h2>Classement général</h2>
+        <p>Suivez en direct le classement des écoles Polytech selon les kilomètres parcourus.</p>
+        <div class="stats-cards">
+          <article class="card highlight">
+            <h3>Total global</h3>
+            <p class="stat-value" id="global-total">0 km</p>
+            <p class="stat-subtitle">Kilomètres cumulés pour les Restos du Cœur</p>
+          </article>
+          <article class="card">
+            <h3>Écoles participantes</h3>
+            <p class="stat-value" id="schools-count">0</p>
+            <p class="stat-subtitle">16 écoles mobilisées</p>
+          </article>
+          <article class="card">
+            <h3>Trajets enregistrés</h3>
+            <p class="stat-value" id="rides-count">0</p>
+            <p class="stat-subtitle">Déclarations solidaires</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="leaderboard" aria-live="polite">
+        <div class="section-header">
+          <h2>Classement des écoles</h2>
+          <span class="last-updated" id="leaderboard-updated">Mise à jour en attente…</span>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">École</th>
+                <th scope="col">Kilomètres</th>
+                <th scope="col">Objectif</th>
+                <th scope="col">Progression</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+              <tr>
+                <td colspan="5">Chargement du classement…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="top-rides" aria-live="polite">
+        <div class="top-rides-column">
+          <h2>Top 3 trajets du jour</h2>
+          <ol id="daily-top-rides" class="ride-list">
+            <li>En attente de données…</li>
+          </ol>
+        </div>
+        <div class="top-rides-column">
+          <h2>Top 3 trajets de la semaine</h2>
+          <ol id="weekly-top-rides" class="ride-list">
+            <li>En attente de données…</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="call-to-action">
+        <div class="cta-content">
+          <h2>Participez au défi</h2>
+          <p>Rejoignez votre école, enregistrez vos trajets, et contribuez à un marathon solidaire au profit des Restos du Cœur.</p>
+          <div class="cta-actions">
+            <label class="visually-hidden" for="cta-school-select">Choisissez votre école</label>
+            <select id="cta-school-select" class="cta-select" aria-label="Choisissez votre école">
+              <option value="" selected disabled>Choisissez votre école…</option>
+            </select>
+            <button type="button" id="cta-school-submit" class="cta-button">Je déclare mon trajet</button>
+          </div>
+          <noscript>
+            <p>
+              <strong>Sans JavaScript ?</strong>
+              Consultez la <a href="#nav-links">liste des écoles</a> un peu plus haut pour rejoindre la vôtre.
+            </p>
+          </noscript>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>&copy; <span id="current-year"></span> Polytech Roule pour le Caritatif. Projet étudiant au profit des Restos du Cœur.</p>
+      </div>
+    </footer>
+
+    <div id="auth-modal" class="auth-modal" hidden aria-hidden="true">
+      <div class="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+        <button type="button" class="auth-modal__close" data-auth-close aria-label="Fermer">×</button>
+        <h2 id="auth-modal-title">Connexion</h2>
+        <form id="auth-form" novalidate>
+          <div class="form-group">
+            <label for="auth-email">Email</label>
+            <input id="auth-email" type="email" name="email" required autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="auth-password">Mot de passe</label>
+            <div class="password-field">
+              <input id="auth-password" type="password" name="password" required minlength="8" autocomplete="current-password" />
+              <button type="button" class="password-toggle" aria-label="Afficher le mot de passe" aria-pressed="false">👁</button>
+            </div>
+          </div>
+          <div class="form-actions auth-modal__actions">
+            <button type="submit" class="primary-button" data-auth-submit>Se connecter</button>
+          </div>
+          <p class="form-feedback" id="auth-feedback" role="alert" hidden></p>
+        </form>
+      </div>
+    </div>
+
+  </body>
+</html>

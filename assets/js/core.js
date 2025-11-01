@@ -545,6 +545,15 @@ export function initializeAppwrite() {
       const normalizedPath = devProxy.path.startsWith('/') ? devProxy.path : `/${devProxy.path}`;
       endpointToUse = `${origin}${normalizedPath}`;
     }
+
+    try {
+      const usingProxy = endpointToUse !== appwriteConfig.endpoint;
+      console.info(
+        `[PRC] Appwrite endpoint: ${endpointToUse} (proxy: ${usingProxy ? 'on' : 'off'}), origin: ${origin}`
+      );
+    } catch (_) {
+      // ignore console errors
+    }
   }
 
   clientInstance.setEndpoint(endpointToUse);
@@ -558,6 +567,21 @@ export function initializeAppwrite() {
   loadCurrentUser().catch((error) => {
     console.warn('Impossible de charger la session utilisateur Appwrite au démarrage :', error);
   });
+
+  // Diagnostic léger: ping de l'API pour aider au debug en production
+  if (typeof window !== 'undefined') {
+    try {
+      const healthUrl = `${clientInstance.config.endpoint.replace(/\/$/, '')}/health/version`;
+      fetch(healthUrl, { credentials: 'include' })
+        .then(async (res) => {
+          const text = await res.text().catch(() => '');
+          console.info('[PRC] Health check', res.status, res.ok ? 'OK' : 'FAIL', text || '');
+        })
+        .catch((err) => console.warn('[PRC] Health check error', err));
+    } catch (e) {
+      // noop
+    }
+  }
 
   if (appwriteConfig.schoolSettingsCollectionId) {
     loadSchoolSettings().catch((error) => {

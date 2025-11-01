@@ -1,6 +1,14 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // When hosting on GitHub Pages at https://<owner>/<repo>/, set base accordingly
+  // Replace "/site-prc/" if your repository name changes.
+  base: '/site-prc/',
+  build: {
+    // Build into "docs" so GitHub Pages can serve from the main branch
+    outDir: 'docs',
+    emptyOutDir: true,
+  },
   server: {
     proxy: {
       '/v1': {

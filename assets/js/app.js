@@ -62,18 +62,58 @@ function setupNavigationToggle() {
   const navLinks = document.querySelector('#nav-links');
   if (!toggle || !navLinks) return;
 
+  const authButton = document.querySelector('#auth-button');
+
+  const closeMenu = () => {
+    toggle.setAttribute('aria-expanded', 'false');
+    navLinks.classList.remove('open');
+    document.body.classList.remove('menu-open');
+    document.documentElement.style.removeProperty('--nav-open-top');
+  };
+
   toggle.addEventListener('click', () => {
     const expanded = toggle.getAttribute('aria-expanded') === 'true';
     toggle.setAttribute('aria-expanded', (!expanded).toString());
-    navLinks.classList.toggle('open', !expanded);
+    const willOpen = !expanded;
+    navLinks.classList.toggle('open', willOpen);
+    document.body.classList.toggle('menu-open', willOpen);
+
+    // On small screens, compute the dropdown top position based on the toggle button
+    // and expose it via a CSS variable so the menu can be positioned as a fixed sheet.
+    if (willOpen) {
+      const rect = toggle.getBoundingClientRect();
+      const top = Math.round(rect.bottom + 8); // 8px gap
+      document.documentElement.style.setProperty('--nav-open-top', `${top}px`);
+    } else {
+      document.documentElement.style.removeProperty('--nav-open-top');
+    }
   });
 
   navLinks.querySelectorAll('a').forEach((link) =>
     link.addEventListener('click', () => {
-      toggle.setAttribute('aria-expanded', 'false');
-      navLinks.classList.remove('open');
+      closeMenu();
     })
   );
+
+  // Close menu when clicking outside of it or the toggle button
+  document.addEventListener('click', (event) => {
+    if (!navLinks.classList.contains('open')) return;
+    const target = event.target;
+    if (toggle.contains(target) || navLinks.contains(target)) return;
+    closeMenu();
+  });
+
+  // Close if the user clicks on the auth button (open/close modal)
+  if (authButton) {
+    authButton.addEventListener('click', () => closeMenu());
+  }
+
+  // Optional UX: close on Escape key
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && navLinks.classList.contains('open')) {
+      closeMenu();
+    }
+  });
 }
 
 function setupAuthControls() {

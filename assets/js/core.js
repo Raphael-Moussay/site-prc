@@ -115,28 +115,7 @@ function cleanAuthRedirectParams() {
   }
 }
 
-export function loginWithGoogle({ successUrl, failureUrl } = {}) {
-  const baseUrl = typeof window !== 'undefined' ? window.location.href : null;
-  const success = successUrl
-    ? new URL(successUrl, window.location.origin)
-    : baseUrl
-      ? new URL(baseUrl)
-      : null;
-  const failure = failureUrl
-    ? new URL(failureUrl, window.location.origin)
-    : success
-      ? new URL(success.toString())
-      : null;
-
-  if (success) {
-    success.searchParams.set('auth', 'success');
-  }
-  if (failure) {
-    failure.searchParams.set('auth', 'failure');
-  }
-
-  return account().createOAuth2Session('google', success?.toString(), failure?.toString());
-}
+// OAuth Google retiré: l'application utilise désormais email/mot de passe
 
 async function createEmailPasswordSession({ email, password }) {
   const apiPath = '/account/sessions/email';

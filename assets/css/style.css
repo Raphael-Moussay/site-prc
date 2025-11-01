@@ -293,6 +293,28 @@ main {
   gap: 1.25rem;
 }
 
+@media (max-width: 900px) {
+  .top-rides {
+    grid-template-columns: 1fr;
+  }
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .auth-modal__dialog {
+    width: min(92vw, 540px);
+    margin: 1rem auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .brand h1 { font-size: 1.15rem; }
+  .brand p { font-size: .9rem; }
+  .primary-button, .secondary-button, .link-button {
+    font-size: .95rem;
+  }
+}
+
 .card {
   background: var(--color-surface);
   padding: 1.75rem;
@@ -506,6 +528,8 @@ main {
 .proof-item legend {
   font-weight: 600;
   color: var(--color-primary);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .form-group {
@@ -516,6 +540,8 @@ main {
 
 .form-group label {
   font-weight: 600;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 input,
@@ -526,6 +552,15 @@ select {
   border-radius: 0.8rem;
   font-family: inherit;
   font-size: 1rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Ensure native file inputs don't overflow on small screens */
+input[type='file'] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
 }
 
 .scroll-top-button {

@@ -1,8 +1,0 @@
-[
-  {
-    "origin": ["http://127.0.0.1:5500/", "https://ton-domaine.com"],
-    "method": ["GET", "POST", "PUT", "OPTIONS"],
-    "responseHeader": ["Content-Type", "x-goog-meta-*"],
-    "maxAgeSeconds": 3600
-  }
-]

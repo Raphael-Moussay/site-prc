@@ -51,5 +51,4 @@ export const appwriteConfig = {
 
 export const appwriteOptions = {
   enableRealtime: true,
-  allowAnonymousWrites: false,
 };

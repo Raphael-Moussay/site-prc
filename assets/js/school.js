@@ -658,15 +658,22 @@ function canShowActionsForRide(ride) {
 
 function renderRideCard(ride) {
   const authorLabel = getRideAuthorLabel(ride);
-  const proofsHtml = ride.proofs
-    .map(
-      (proof) => `
+  const proofs = Array.isArray(ride.proofs)
+    ? ride.proofs
+    : (() => { try { return JSON.parse(ride.proofs || '[]'); } catch { return []; } })();
+
+  const proofsHtml = proofs
+    .map((proof) => {
+      const d = typeof proof?.distance === 'number' ? proof.distance : parseFloat(String(proof?.distance ?? '0'));
+      const perProofDistance = Number.isFinite(d) ? d : 0;
+      const url = proof?.downloadUrl || '';
+      return `
         <figure class="ride-proof">
-          <img src="${proof.downloadUrl}" alt="Preuve de trajet pour ${ride.schoolName}" loading="lazy" />
-          <figcaption>${formatDistance(ride.totalDistance)}</figcaption>
+          <img src="${url}" alt="Preuve de trajet pour ${ride.schoolName}" loading="lazy" />
+          <figcaption>${formatDistance(perProofDistance)}</figcaption>
         </figure>
-      `
-    )
+      `;
+    })
     .join('');
 
   const controls = canShowActionsForRide(ride)

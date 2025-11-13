@@ -15,6 +15,18 @@ export const appwriteConfig = {
   // Optionnel: emails admin par école pour l'UI (si la détection des teams échoue)
   schoolAdminEmails: {
     sorbonne: ['bds.polytechsorbonne@gmail.com'],
+    tours: ['adam.vermote@bde-polytech-tours.fr'],
+    paris: ['mariemarathee@gmail.com'],
+    angers: ['bde.polytech.angers@gmail.com'],
+    nantes: [
+      'bdepolytechunivnantes@gmail.com',
+      'loriane.allardi@gmail.com'
+    ],
+    clermont: ['bdheclermont@gmail.com'],
+    orleans: [
+      'lodykhairallah@hotmail.com',
+      'florianc020904@gmail.com'
+    ],
   },
   devProxy: {
     enabled: true,

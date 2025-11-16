@@ -19,7 +19,7 @@ const schools = [
   { code: 'marseille', displayName: 'Polytech Marseille', objective: 650 },
   { code: 'montpellier', displayName: 'Polytech Montpellier', objective: 620 },
   { code: 'nancy', displayName: 'Polytech Nancy', objective: 600 },
-  { code: 'nantes', displayName: 'Polytech Nantes', objective: 630 },
+  { code: 'nantes', displayName: 'Polytech Nantes - Gavy', objective: 630 },
   { code: 'nice', displayName: 'Polytech Nice Sophia', objective: 700 },
   { code: 'orleans', displayName: 'Polytech Orléans', objective: 580 },
   { code: 'paris', displayName: 'Polytech Paris-Saclay', objective: 720 },

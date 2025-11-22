@@ -142,7 +142,7 @@ body.menu-open {
 .auth-controls {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .auth-modal {
@@ -706,15 +706,69 @@ textarea {
   border-radius: 999px;
 }
 
-.secondary-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(29, 126, 210, 0.2);
+/* Nouveau style pour le bouton Don */
+.gold-button {
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #1a1a1a; /* Texte foncé pour le contraste sur le doré */
+  padding: 0.65rem 1.2rem; /* Même padding que secondary-button */
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.link-button {
-  background: transparent;
-  color: var(--color-muted);
-  text-decoration: underline;
+/* Uniformisation des boutons du header (Menu, Connexion, Don) */
+.nav-toggle,
+.secondary-button,
+.gold-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center; /* Centre le texte horizontalement */
+  padding: 0 1.2rem; /* Padding horizontal uniquement, la hauteur est fixée */
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  height: 42px; /* Hauteur fixe pour une taille identique */
+  min-width: 80px; /* Largeur minimale pour l'esthétique */
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+/* Couleurs pour Menu et Connexion */
+.nav-toggle,
+.secondary-button {
+  background: rgba(29, 126, 210, 0.1);
+  color: var(--color-primary);
+}
+
+/* Couleurs pour le bouton Don */
+.gold-button {
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #1a1a1a;
+}
+
+/* Effet de survol commun */
+.nav-toggle:hover,
+.secondary-button:hover,
+.gold-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  opacity: 0.95;
+}
+
+/* Ajustement de l'espacement dans le conteneur */
+.auth-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .form-hint {

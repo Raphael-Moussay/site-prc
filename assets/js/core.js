@@ -1046,6 +1046,7 @@ function normalizeRide(id, data) {
     authorId: data.authorId ?? null,
     authorName: data.authorName ?? '',
     authorEmail: data.authorEmail ?? '',
+    speciality: data.speciality ?? '',
     proofs: proofs.map((proof) => ({
       storagePath: proof.storagePath,
       fileId: proof.fileId,

@@ -2,13 +2,14 @@ import {
   initializeAppwrite,
   getSchools,
   getSchoolByCode,
-  formatDistance,
-  formatDateTime,
+  getSchoolObjective,
+  getSchoolTotals,
   createRide,
+  uploadProof,
   listenToSchoolTotals,
   fetchRecentRides,
-  getSchoolTotals,
-  uploadProof,
+  formatDistance,
+  formatDateTime,
   setupHeaderAutoHide,
   setupScrollToTopButton,
   onAuthStateChange,
@@ -16,8 +17,6 @@ import {
   loginWithEmailPassword,
   logout,
   getUserDisplayName,
-  getSchoolObjective,
-  setSchoolObjective,
   canManageSchool,
   updateRide,
   deleteRide,
@@ -706,6 +705,20 @@ function canShowActionsForRide(ride) {
 
 function renderRideCard(ride) {
   const authorLabel = getRideAuthorLabel(ride);
+  
+  // Logique pour déterminer le label (Spécialité ou Admin)
+  let roleLabel = ride.speciality ? ` (${ride.speciality})` : '';
+  
+  const email = ride.authorEmail?.trim().toLowerCase();
+  if (email) {
+    const isOwner = appwriteConfig.ownerEmails?.map(e => e.toLowerCase()).includes(email);
+    const isSchoolAdmin = appwriteConfig.schoolAdminEmails?.[ride.schoolCode]?.map(e => e.toLowerCase()).includes(email);
+    
+    if (isOwner || isSchoolAdmin) {
+      roleLabel = ' (Admin)';
+    }
+  }
+
   const proofs = Array.isArray(ride.proofs)
     ? ride.proofs
     : (() => { try { return JSON.parse(ride.proofs || '[]'); } catch { return []; } })();
@@ -740,7 +753,7 @@ function renderRideCard(ride) {
         <span>${formatDistance(ride.totalDistance)}</span>
       </header>
       <div class="ride-meta">
-        <span class="ride-author">Publié par ${authorLabel}</span>
+        <span class="ride-author">Publié par ${authorLabel}${roleLabel}</span>
         <time datetime="${ride.createdAt.toISOString()}">${formatDateTime(ride.createdAt)}</time>
       </div>
       ${ride.notes ? `<p class="ride-notes">${ride.notes}</p>` : ''}

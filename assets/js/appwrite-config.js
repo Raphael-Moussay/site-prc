@@ -23,6 +23,7 @@ export const appwriteConfig = {
       'loriane.allardi@gmail.com'
     ],
     clermont: ['bdheclermont@gmail.com'],
+    grenoble: ['contact@bdspolytechgrenoble.fr','contact@bdepolytechgrenoble.fr'],
     orleans: [
       'lodykhairallah@hotmail.com',
       'florianc020904@gmail.com'

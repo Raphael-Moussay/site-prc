@@ -928,13 +928,35 @@ export function listenToSchoolTotals(schoolCode, callback) {
 }
 
 export async function fetchRecentRides(schoolCode, { limitCount = 6 } = {}) {
-  const response = await databases().listDocuments(appwriteConfig.databaseId, appwriteConfig.ridesCollectionId, [
-    Query.equal('schoolCode', schoolCode),
-    Query.orderDesc('createdAt'),
-    Query.limit(limitCount),
-  ]);
+  const documents = [];
+  let cursor = null;
+  let remaining = limitCount;
 
-  return response.documents.map((doc) => normalizeRide(doc.$id, doc));
+  while (remaining > 0) {
+    const limit = Math.min(remaining, 100);
+    const queries = [
+      Query.equal('schoolCode', schoolCode),
+      Query.orderDesc('createdAt'),
+      Query.limit(limit),
+    ];
+
+    if (cursor) {
+      queries.push(Query.cursorAfter(cursor));
+    }
+
+    const response = await databases().listDocuments(appwriteConfig.databaseId, appwriteConfig.ridesCollectionId, queries);
+    const batch = response.documents;
+    documents.push(...batch);
+
+    if (batch.length < limit) {
+      break;
+    }
+
+    cursor = batch[batch.length - 1].$id;
+    remaining -= batch.length;
+  }
+
+  return documents.map((doc) => normalizeRide(doc.$id, doc));
 }
 
 // Recalcule une fois les totaux pour une école (sans abonnement)

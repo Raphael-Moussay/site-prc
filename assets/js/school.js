@@ -541,7 +541,8 @@ function ensureGoalEditControl() {
 async function refreshPosts(force = false) {
   try {
     postsGrid?.classList.add('loading');
-    const rides = await fetchRecentRides(school.code, { force });
+    // On récupère un grand nombre de publications pour simuler "toutes" les publications
+    const rides = await fetchRecentRides(school.code, { limitCount: 1000 });
     lastRides = rides;
     renderPosts(rides);
   } catch (error) {
